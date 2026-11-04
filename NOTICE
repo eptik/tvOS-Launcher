@@ -14,3 +14,7 @@ This product includes third-party components under their own licences:
   (assets/fonts/Inter-LICENSE.txt)
 - QR Code generator library (Java) — Copyright (c) Project Nayuki — MIT License
   (src/io/nayuki/qrcodegen)
+
+Nuvio account sign-in (src/com/techgenius/tvoslauncher/NuvioAccount.java, NuvioSync.java,
+NuvioLoginActivity.java) is ported from Flix Launcher by HatriGt, MIT licensed:
+https://github.com/HatriGt/flix-launcher

@@ -944,6 +944,11 @@ public class SettingsActivity extends Activity {
                             .apply();
                     showStatusMsg(tr("App layout reset to default.", "Uygulama düzeni varsayılana sıfırlandı."));
                 });
+        row(tr("Nuvio account", "Nuvio hesabı"),
+                () -> NuvioAccount.isSignedIn(this)
+                        ? (NuvioAccount.profileName(this).isEmpty() ? tr("Connected", "Bağlı") : NuvioAccount.profileName(this))
+                        : tr("Not signed in", "Oturum açılmadı"),
+                () -> startActivity(new android.content.Intent(this, NuvioLoginActivity.class)));
         row(tr("Show Continue Watching on Home", "Ana ekranda İzlemeye Devam Et'i göster"),
                 () -> Profiles.homePrefs(this).getBoolean("cw_enabled", false) ? tr("On", "Açık") : tr("Off", "Kapalı"),
                 () -> {
