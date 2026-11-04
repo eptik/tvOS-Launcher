@@ -425,6 +425,7 @@ public class MainActivity extends Activity {
         }
         resumed = true;
         activeInstance = this;
+        if (NuvioSync.due(this)) NuvioSync.refresh(this, () -> reload(currentKey()));
         clearLaunchDim();
         boolean wasReturningFromSettings = returningFromSettings;
         if (!Scenes.isScenesLook(this)) {
