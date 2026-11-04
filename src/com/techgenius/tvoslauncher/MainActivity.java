@@ -2116,21 +2116,28 @@ public class MainActivity extends Activity {
         glassBg = show && heroBlur != null ? heroBlur : wallBlur;
         invalidateGlass();
         float a = show ? 1f : 0f;
-        if (show) {
+        // The artwork stays sharp whether or not the shelf has focus: a blurred, upscaled still is
+        // what made the idle home screen look soft and zoomed. The scrim carries legibility instead.
+        boolean keepArt = !heroItems.isEmpty() && !folderMode;
+        if (keepArt) {
             heroFront.setVisibility(View.VISIBLE);
+            heroFront.animate().alpha(1f).setDuration(show ? 360 : 220)
+                    .withEndAction(() -> wallView.setVisibility(View.INVISIBLE)).start();
+            heroScrim.setVisibility(View.VISIBLE);
+            heroScrim.animate().alpha(show ? 0f : 0.6f).setDuration(show ? 360 : 220).start();
         } else {
             wallView.setVisibility(View.VISIBLE);
+            heroScrim.animate().alpha(0f).setDuration(220).start();
         }
         int dur = show ? 360 : 220;
-        heroFront.animate().alpha(a).setDuration(dur).withEndAction(() -> {
-            if (heroShown && heroFront.getAlpha() >= 1f) {
-                wallView.setVisibility(View.INVISIBLE);
-            } else if (!heroShown && heroFront.getAlpha() <= 0f) {
-                heroFront.setVisibility(View.GONE);
-                heroBack.setVisibility(View.GONE);
-            }
-        }).start();
-        heroScrim.setVisibility(View.GONE);
+        if (!keepArt) {
+            heroFront.animate().alpha(0f).setDuration(dur).withEndAction(() -> {
+                if (!heroShown) {
+                    heroFront.setVisibility(View.GONE);
+                    heroBack.setVisibility(View.GONE);
+                }
+            }).start();
+        }
 
         heroInfo.animate().alpha(a).setDuration(dur).start();
         heroDots.animate().alpha(a).setDuration(dur).start();
@@ -2163,7 +2170,7 @@ public class MainActivity extends Activity {
         }
         int want = index;
         io.execute(() -> {
-            Bitmap raw = Suggestions.image(this, it.backdrop, "w1280", Math.min(1280, screenW));
+            Bitmap raw = Suggestions.image(this, it.backdrop, "w1280", Math.min(1920, screenW));
             Bitmap bd = "news".equals(it.type) ? bakeNews(raw) : bakeScrims(raw);
             Bitmap bdBlur = Ui.glassBackdrop(bd, 160, 90);
             String logoPath = Suggestions.logoFor(this, it);
@@ -2290,7 +2297,7 @@ public class MainActivity extends Activity {
         ImageView old = heroBack;
         next.animate().cancel();
         next.setImageBitmap(bd);
-        float target = heroShown ? 1f : 0f;
+        float target = heroItems.isEmpty() || folderMode ? 0f : 1f;
         if (dir == 0 || !heroShown) {
             next.setTranslationX(0);
             next.setAlpha(target);

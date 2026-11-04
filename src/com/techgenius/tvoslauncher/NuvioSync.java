@@ -40,7 +40,11 @@ final class NuvioSync {
     private NuvioSync() {
     }
 
+    /** Bumped when the stored shape changes; a stale cache re-syncs once instead of waiting. */
+    private static final int SYNC_SCHEMA = 2;
+
     static boolean due(Context c) {
+        if (NuvioAccount.prefs(c).getInt("sync_schema", 0) < SYNC_SCHEMA) return true;
         long last = NuvioAccount.prefs(c).getLong("last_sync", 0);
         return System.currentTimeMillis() - last > LAST_SYNC_KEY_MS;
     }
@@ -116,7 +120,10 @@ final class NuvioSync {
                     out.put(o);
                 }
                 MediaWatchService.Store.write(app, out);
-                NuvioAccount.prefs(app).edit().putLong("last_sync", System.currentTimeMillis()).apply();
+                NuvioAccount.prefs(app).edit()
+                        .putLong("last_sync", System.currentTimeMillis())
+                        .putInt("sync_schema", SYNC_SCHEMA)
+                        .apply();
                 Log.i(TAG, "synced " + mine.length() + " Nuvio titles");
                 if (done != null) new android.os.Handler(android.os.Looper.getMainLooper()).post(done);
             } catch (Exception e) {
@@ -136,9 +143,13 @@ final class NuvioSync {
 
         String name = meta == null ? "" : meta.optString("name");
         if (name.isEmpty() || "null".equals(name)) name = id;
-        String poster = meta == null ? "" : meta.optString("poster");
-        if ("null".equals(poster)) poster = "";
-        if (poster.isEmpty()) poster = "https://images.metahub.space/poster/medium/" + id + "/img.jpg";
+        // `art` is the full-screen hero still, not a card thumbnail: a 2:3 poster here is what made
+        // the home screen look like a zoomed, blurry crop. Metahub's background is native 1920x1080.
+        String art = meta == null ? "" : meta.optString("background");
+        if ("null".equals(art)) art = "";
+        if (art.isEmpty() && meta != null) art = meta.optString("poster");
+        if ("null".equals(art)) art = "";
+        if (art.isEmpty()) art = "https://images.metahub.space/background/medium/" + id + "/img.jpg";
 
         String sub = type.equals("series") && season > 0 ? "S" + season + " E" + episode : "";
         try {
@@ -147,7 +158,7 @@ final class NuvioSync {
                     .put("pkg", NUVIO)
                     .put("title", name)
                     .put("sub", sub)
-                    .put("art", poster)
+                    .put("art", art)
                     .put("pos", position)
                     .put("dur", duration)
                     .put("ts", System.currentTimeMillis())
