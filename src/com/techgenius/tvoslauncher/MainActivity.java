@@ -217,6 +217,10 @@ public class MainActivity extends Activity {
     int moveIndex = -1;
     boolean folderMode;
     boolean resumed;
+    private MediaPill mediaPill;
+    private final NowPlaying.Listener npListener = track -> {
+        if (mediaPill != null) mediaPill.setTrack(track);
+    };
     ObjectAnimator wiggle;
     AppEntry shelfEntry;
     BroadcastReceiver pkgReceiver;
@@ -425,6 +429,9 @@ public class MainActivity extends Activity {
         }
         resumed = true;
         activeInstance = this;
+        NowPlaying.addListener(npListener);
+        NowPlaying.refresh(getApplicationContext());
+        handler.postDelayed(() -> NowPlaying.refresh(getApplicationContext()), 1500L);
         clearLaunchDim();
         boolean wasReturningFromSettings = returningFromSettings;
         if (!Scenes.isScenesLook(this)) {
@@ -867,6 +874,22 @@ public class MainActivity extends Activity {
         clp.rightMargin = dockOuter - grow;
         root.addView(clockBox, clp);
         watchNetwork();
+
+        // Now-playing pill under the status row: glass island with round artwork, no app icon.
+        mediaPill = new MediaPill(this);
+        mediaPill.setHost(new MediaPill.Host() {
+            @Override public void onToggle() { NowPlaying.togglePlayPause(); }
+            @Override public void onNext() { NowPlaying.skipNext(); }
+        });
+        mediaPill.setVisibility(View.GONE);
+        mediaPill.setAlpha(0f);
+        mediaPill.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.START);
+        mlp.topMargin = dp(24) + dp(34) + dp(10);
+        mlp.leftMargin = dockOuter;
+        root.addView(mediaPill, 1, mlp);   // above the wallpaper layers, below the overlays
 
         // Weather overview in the top-left corner, over the top shelf; OK opens the forecast.
         weatherCard = new WeatherView(this, false, unit);
