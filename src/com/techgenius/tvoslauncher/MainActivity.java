@@ -3683,6 +3683,10 @@ public class MainActivity extends Activity {
             }
             return true;
         }
+        if (nowPlayingPanel != null && nowPlayingPanel.isAttachedToWindow()
+                && pickerLayer != null && nowPlayingPanel.dispatch(ev)) {
+            return true;
+        }
         if (pickerLayer != null && menuLayer == null) {
             int pk = ev.getKeyCode();
             boolean pd = ev.getAction() == KeyEvent.ACTION_DOWN;

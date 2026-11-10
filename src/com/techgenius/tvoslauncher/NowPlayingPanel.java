@@ -195,9 +195,39 @@ public class NowPlayingPanel extends LinearLayout {
         return b;
     }
 
+    /**
+     * Interior D-pad routing. MainActivity routes keys here BEFORE the generic pickerMove()
+     * fallback, whose single-cell grid logic would otherwise re-focus the panel and drop focus on
+     * its first button — which is how RIGHT ended up on the button to the LEFT.
+     */
+    public boolean dispatch(android.view.KeyEvent ev) {
+        int k = ev.getKeyCode();
+        boolean down = ev.getAction() == android.view.KeyEvent.ACTION_DOWN;
+        View f = findFocus();
+        if (f != prevBtn && f != toggleBtn && f != nextBtn) return false;
+        if (k == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && down) {
+            if (f == prevBtn) toggleBtn.requestFocus();
+            else if (f == toggleBtn) nextBtn.requestFocus();
+            return true;                                   // edge: stay, do not wrap or escape
+        }
+        if (k == android.view.KeyEvent.KEYCODE_DPAD_LEFT && down) {
+            if (f == nextBtn) toggleBtn.requestFocus();
+            else if (f == toggleBtn) prevBtn.requestFocus();
+            return true;
+        }
+        if (k == android.view.KeyEvent.KEYCODE_DPAD_UP || k == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+            return true;                                   // single-row popover: nothing above or below
+        }
+        return false;                                      // OK/BACK keep their default handling
+    }
+
     /** Puts the remote focus on play/pause so the popover is immediately operable. */
     public void focusTransport() {
         toggleBtn.requestFocus();
+        // The hierarchy may not be laid out when the popover opens; retry once it is.
+        post(() -> {
+            if (findFocus() == null) toggleBtn.requestFocus();
+        });
     }
 
     public void setHost(Host host) {
