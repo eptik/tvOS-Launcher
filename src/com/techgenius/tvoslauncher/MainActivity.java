@@ -884,12 +884,16 @@ public class MainActivity extends Activity {
         mediaPill.setVisibility(View.GONE);
         mediaPill.setAlpha(0f);
         mediaPill.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        // Under the clock chip, top-right: top-centre is SceneHome's greeting, top-left is weather.
+        // Elevation, not child index, decides draw order here — at index 1 the pill sat underneath
+        // the scene layer and was invisible even with a live Spotify session.
+        mediaPill.setElevation(dp(6));
         FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.START);
-        mlp.topMargin = dp(24) + dp(34) + dp(10);
-        mlp.leftMargin = dockOuter;
-        root.addView(mediaPill, 1, mlp);   // above the wallpaper layers, below the overlays
+                Gravity.TOP | Gravity.END);
+        mlp.topMargin = dp(24) + dp(34) + dp(12);
+        mlp.rightMargin = dockOuter;
+        root.addView(mediaPill, 1, mlp);
 
         // Weather overview in the top-left corner, over the top shelf; OK opens the forecast.
         weatherCard = new WeatherView(this, false, unit);

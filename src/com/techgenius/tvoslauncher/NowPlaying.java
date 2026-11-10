@@ -14,6 +14,8 @@ import android.os.Looper;
 import android.util.Log;
 
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -246,6 +248,18 @@ public final class NowPlaying {
             if (uri == null) uri = stringUri(md, MediaMetadata.METADATA_KEY_ART_URI);
             if (uri == null) return null;
             if (appContext == null) return null;
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme();
+            if (scheme.equals("http") || scheme.equals("https")) {
+                // Spotify TV hands an https cover, which ContentResolver cannot open.
+                HttpURLConnection conn = (HttpURLConnection) new URL(uri.toString()).openConnection();
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(6000);
+                try (InputStream in = conn.getInputStream()) {
+                    return in == null ? null : BitmapFactory.decodeStream(in);
+                } finally {
+                    conn.disconnect();
+                }
+            }
             try (InputStream in = appContext.getContentResolver().openInputStream(uri)) {
                 return in == null ? null : BitmapFactory.decodeStream(in);
             }
