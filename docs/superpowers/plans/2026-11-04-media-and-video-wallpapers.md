@@ -24,6 +24,8 @@
 - No third-party runtime dependencies in this task (README claims zero; adding ExoPlayer/VLC is a separate, explicit decision).
 - `wallper.app/robots.txt` disallows `/api/` and `/_next/` — the TV and scripts read rendered pages (`/wallpapers?...`) only.
 - The AF8 has 1 GB RAM: video playback must be OFF by default there, and the feature must survive the launcher without a decoder (graceful fallback to the still wallpaper).
+- RAM budget (Shield Pro): video decodes in NVDEC buffers with a 1080p surface — never a 4K surface, never a second player instance. Wallper catalog is parsed once and cached on disk (24 h TTL); stills decode at ≤ 1920 px.
+- Continue Watching is row-only: it must never replace the home wallpaper/hero. Upstream's `cw_enabled` stays OFF; the dock-tile popup is the only CW surface (owner decision 2026-11-04).
 - Wallpaper content: no anime, no games, no manga, no pixelart, no people; minimum 3840×2160.
 - Apple motion: crossfades ≤ 400 ms, focus reacts on the frame it lands, no animation while the system animator scale is 0.
 
