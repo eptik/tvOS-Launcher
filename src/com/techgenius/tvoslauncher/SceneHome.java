@@ -59,6 +59,9 @@ final class SceneHome {
     LinearLayout weatherBtn;
     ImageView weatherIcon;
     LinearLayout moonBtn;
+    LinearLayout mediaBtn;
+    TextView mediaText;
+    ImageView mediaIcon;
     ImageView moonIcon;
     TextView moonText;
 
@@ -278,6 +281,69 @@ final class SceneHome {
         topRightRow.addView(whoBar, wlp);
         refreshWhoBar();
 
+        // Now-playing chip: appears only while something plays. Focus reveals the title, OK opens
+        // the Now Playing popover (MainActivity.showNowPlaying).
+        mediaBtn = new LinearLayout(host);
+        mediaBtn.setOrientation(LinearLayout.HORIZONTAL);
+        mediaBtn.setGravity(Gravity.CENTER_VERTICAL);
+        mediaBtn.setPadding(dp(6), 0, dp(10), 0);
+        MainActivity.LiquidGlass mediaGlass = new MainActivity.LiquidGlass(
+                dp(21), 0x6614161C, host.glassSource, host.screenW, host.screenH, host.unit);
+        mediaGlass.lens = dp(5);
+        mediaGlass.rimStrength = 0.45f;
+        mediaBtn.setBackground(mediaGlass);
+        mediaBtn.setFocusable(true);
+        mediaBtn.setClickable(true);
+
+        mediaIcon = new ImageView(host);
+        mediaIcon.setImageBitmap(Glyphs.get("audio", dp(19), 0xFFF4F4F6));
+        mediaBtn.addView(mediaIcon, new LinearLayout.LayoutParams(dp(19), dp(19)));
+
+        mediaText = new TextView(host);
+        mediaText.setTypeface(Ui.font(host, "semibold"));
+        mediaText.setTextColor(0xFFF4F4F6);
+        mediaText.setTextSize(12);
+        mediaText.setSingleLine(true);
+        mediaText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        mediaText.setVisibility(View.GONE);
+        LinearLayout.LayoutParams mtlp2 = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        mtlp2.leftMargin = dp(8);
+        mediaBtn.addView(mediaText, mtlp2);
+
+        GradientDrawable mediaFocusRing = new GradientDrawable();
+        mediaFocusRing.setCornerRadius(dp(21));
+        mediaFocusRing.setColor(Color.TRANSPARENT);
+        mediaFocusRing.setStroke(dp(2), Color.WHITE);
+        mediaBtn.setOnFocusChangeListener((v, has) -> {
+            v.setForeground(has ? mediaFocusRing : null);
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) v.getLayoutParams();
+            // Collapsed: a 42x42 circle like the neighbours. Expanded: wrap to fit the title.
+            int want = has && NowPlaying.current() != null
+                    ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(42);
+            if (lp.width != want) {
+                lp.width = want;
+                v.setLayoutParams(lp);
+            }
+            mediaText.setVisibility(has && NowPlaying.current() != null ? View.VISIBLE : View.GONE);
+            v.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f)
+                    .setDuration(180).setInterpolator(MainActivity.LIFT).start();
+            if (has) {
+                hideShelf();
+                showDashboard();
+            }
+        });
+        mediaBtn.setOnClickListener(v -> host.showNowPlaying());
+        mediaBtn.setOnLongClickListener(v -> {
+            NowPlaying.skipNext();
+            return true;
+        });
+        LinearLayout.LayoutParams mblp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(42));
+        mblp.rightMargin = dp(10);
+        topRightRow.addView(mediaBtn, mblp);
+        refreshMediaBtn();
+
         // Top-right Weather Shortcut Button (icon only; opens 5-day forecast UI like Classic Home)
         int mSize = dp(42);
         weatherBtn = new LinearLayout(host);
@@ -421,6 +487,25 @@ final class SceneHome {
         if (weatherBtn == null) return;
         boolean show = isWeatherShortcutEnabled(host) && Weather.enabled(host);
         weatherBtn.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    void refreshMediaBtn() {
+        if (mediaBtn == null) return;
+        NowPlaying.Track t = NowPlaying.current();
+        boolean show = t != null;
+        mediaBtn.setVisibility(show ? View.VISIBLE : View.GONE);
+        LinearLayout.LayoutParams wlp = (LinearLayout.LayoutParams) mediaBtn.getLayoutParams();
+        if (!show && wlp.width != dp(42)) {
+            wlp.width = dp(42);
+            mediaBtn.setLayoutParams(wlp);
+        }
+        if (!show) {
+            if (mediaBtn.hasFocus()) focusDock(focusedDockIdx);
+            return;
+        }
+        String title = t.title == null ? "" : t.title;
+        mediaText.setText(title.length() > 22 ? title.substring(0, 22) + "…" : title);
+        mediaText.setVisibility(mediaBtn.hasFocus() ? View.VISIBLE : View.GONE);
     }
 
     void refreshMoonBtn() {
@@ -2584,10 +2669,15 @@ final class SceneHome {
         // Top Bar navigation
         boolean whoVisible = whoBar != null && whoBar.getVisibility() == View.VISIBLE;
         boolean wxVisible = weatherBtn != null && weatherBtn.getVisibility() == View.VISIBLE;
-        if (f == whoBar || f == weatherBtn || f == moonBtn) {
+        boolean mediaVisible = mediaBtn != null && mediaBtn.getVisibility() == View.VISIBLE;
+        if (f == whoBar || f == mediaBtn || f == weatherBtn || f == moonBtn) {
             if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
                 if (down) {
                     if (f == whoBar) {
+                        if (mediaVisible) mediaBtn.requestFocus();
+                        else if (wxVisible) weatherBtn.requestFocus();
+                        else moonBtn.requestFocus();
+                    } else if (f == mediaBtn) {
                         if (wxVisible) weatherBtn.requestFocus();
                         else moonBtn.requestFocus();
                     } else if (f == weatherBtn) {
@@ -2600,8 +2690,12 @@ final class SceneHome {
                 if (down) {
                     if (f == moonBtn) {
                         if (wxVisible) weatherBtn.requestFocus();
+                        else if (mediaVisible) mediaBtn.requestFocus();
                         else if (whoVisible) whoBar.requestFocus();
-                    } else if (f == weatherBtn && whoVisible) {
+                    } else if (f == weatherBtn) {
+                        if (mediaVisible) mediaBtn.requestFocus();
+                        else if (whoVisible) whoBar.requestFocus();
+                    } else if (f == mediaBtn && whoVisible) {
                         whoBar.requestFocus();
                     }
                 }

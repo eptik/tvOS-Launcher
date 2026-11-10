@@ -217,10 +217,18 @@ public class MainActivity extends Activity {
     int moveIndex = -1;
     boolean folderMode;
     boolean resumed;
-    private MediaPill mediaPill;
-    private final NowPlaying.Listener npListener = track -> {
-        if (mediaPill != null) mediaPill.setTrack(track);
-    };
+    private ImageView classicMediaChip;
+    private NowPlayingPanel nowPlayingPanel;
+    private final NowPlaying.Listener npListener = this::onTrackChanged;
+
+    /** One funnel for session updates: the open panel, the SceneHome chip, nothing else. */
+    private void onTrackChanged(NowPlaying.Track track) {
+        if (nowPlayingPanel != null) nowPlayingPanel.setTrack(track);
+        if (sceneHome != null) sceneHome.refreshMediaBtn();
+        if (classicMediaChip != null) {
+            classicMediaChip.setVisibility(track == null ? View.GONE : View.VISIBLE);
+        }
+    }
     ObjectAnimator wiggle;
     AppEntry shelfEntry;
     BroadcastReceiver pkgReceiver;
@@ -742,6 +750,30 @@ public class MainActivity extends Activity {
         timeChip.addView(time);
         clockBox.addView(timeChip, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, btn));
 
+        // Now Playing chip (Classic look): mirrors the weather button; opens the Now Playing popover.
+        classicMediaChip = new ImageView(this);
+        classicMediaChip.setScaleType(ImageView.ScaleType.CENTER);
+        classicMediaChip.setImageBitmap(Glyphs.get("audio", dp(19), Color.WHITE));
+        LiquidGlass cmGlass = new LiquidGlass(btn / 2f, 0x1F000000, glassSource, screenW, screenH, unit).adaptive();
+        cmGlass.lens = dp(4);
+        classicMediaChip.setBackground(cmGlass);
+        classicMediaChip.setFocusable(true);
+        classicMediaChip.setClickable(true);
+        GradientDrawable cmLit = new GradientDrawable();
+        cmLit.setShape(GradientDrawable.OVAL);
+        cmLit.setColor(Color.WHITE);
+        classicMediaChip.setOnFocusChangeListener((v, has) -> {
+            classicMediaChip.setBackground(has ? cmLit : cmGlass);
+            classicMediaChip.setImageBitmap(Glyphs.get("audio", dp(19), has ? 0xFF111114 : Color.WHITE));
+            v.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).setDuration(200).setInterpolator(LIFT).start();
+            if (has) onClassicNonAppFocused();
+        });
+        classicMediaChip.setOnClickListener(v -> showNowPlaying());
+        LinearLayout.LayoutParams cmlp = new LinearLayout.LayoutParams(btn, btn);
+        cmlp.leftMargin = dp(12);
+        clockBox.addView(classicMediaChip, cmlp);
+        classicMediaChip.setVisibility(View.GONE);
+
         // Classic Big Clock Weather Shortcut button in top-right status row (when Big Clock is enabled on Classic look)
         classicWeatherButton = new ImageView(this);
         classicWeatherButton.setScaleType(ImageView.ScaleType.CENTER);
@@ -875,39 +907,6 @@ public class MainActivity extends Activity {
         root.addView(clockBox, clp);
         watchNetwork();
 
-        // Now-playing pill under the status row: glass island with round artwork, no app icon.
-        mediaPill = new MediaPill(this);
-        mediaPill.setHost(new MediaPill.Host() {
-            @Override public void onToggle() { NowPlaying.togglePlayPause(); }
-            @Override public void onNext() { NowPlaying.skipNext(); }
-        });
-        mediaPill.setVisibility(View.GONE);
-        mediaPill.setAlpha(0f);
-        mediaPill.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-        // Under the clock chip, top-right: top-centre is SceneHome's greeting, top-left is weather.
-        // Elevation, not child index, decides draw order here — at index 1 the pill sat underneath
-        // the scene layer and was invisible even with a live Spotify session.
-        mediaPill.setElevation(dp(6));
-        // Same recipe as SceneHome's top-right chips: 42 dp, dark glass 0x6614161C, lens 5, rim .45,
-        // and a 2 dp white focus ring instead of a white fill.
-        LiquidGlass pillGlass = new LiquidGlass(dp(21), 0x6614161C, glassSource, screenW, screenH, unit);
-        pillGlass.lens = dp(5);
-        pillGlass.rimStrength = 0.45f;
-        mediaPill.setBackground(pillGlass);
-        GradientDrawable pillRing = new GradientDrawable();
-        pillRing.setCornerRadius(dp(21));
-        pillRing.setColor(Color.TRANSPARENT);
-        pillRing.setStroke(dp(2), Color.WHITE);
-        mediaPill.setOnFocusChangeListener((v, has) -> {
-            v.setForeground(has ? pillRing : null);
-            v.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f).setDuration(180)
-                    .setInterpolator(LIFT).start();
-        });
-        FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dp(42), Gravity.TOP | Gravity.END);
-        mlp.topMargin = dp(24) + dp(42) + dp(10);
-        mlp.rightMargin = dockOuter;
-        root.addView(mediaPill, 1, mlp);
 
         // Weather overview in the top-left corner, over the top shelf; OK opens the forecast.
         weatherCard = new WeatherView(this, false, unit);
@@ -5101,6 +5100,54 @@ public class MainActivity extends Activity {
     }
 
     /** The full forecast: a glass panel opening from the weather card in the top-left corner (or top-right weather shortcut in Night Scenes / Classic Big Clock). */
+    /** Now Playing popover from the SceneHome media chip; same mechanics as the weather panel. */
+    void showNowPlaying() {
+        NowPlaying.Track t = NowPlaying.current();
+        if (t == null) {
+            Toast.makeText(this, "Nothing playing", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        dropPicker();
+        stopSway(null);
+        View anchorChip = sceneHome != null && sceneHome.mediaBtn != null
+                && sceneHome.mediaBtn.getVisibility() == View.VISIBLE ? sceneHome.mediaBtn : null;
+        popoverReturn = anchorChip != null ? anchorChip : (ccButton != null ? ccButton : null);
+        FrameLayout layer = new FrameLayout(this);
+        layer.setClickable(true);
+        layer.setClipChildren(false);
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.RIGHT_LEFT,
+                new int[]{0xA6000000, 0x4D000000, 0x00000000}));
+        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5,
+                ViewGroup.LayoutParams.MATCH_PARENT, Gravity.END));
+
+        nowPlayingPanel = new NowPlayingPanel(this);
+        LiquidGlass glass = new LiquidGlass(dp(26), 0x33000000, glassSource, screenW, screenH, unit).adaptive();
+        glass.lens = dp(7);
+        nowPlayingPanel.setBackground(glass);
+        nowPlayingPanel.setHost(new NowPlayingPanel.Host() {
+            @Override public void onToggle() { NowPlaying.togglePlayPause(); }
+            @Override public void onNext() { NowPlaying.skipNext(); }
+        });
+        nowPlayingPanel.setTrack(t);
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
+                dp(Math.round(NowPlayingPanel.W)), dp(Math.round(NowPlayingPanel.H)),
+                Gravity.TOP | Gravity.END);
+        plp.topMargin = dp(24);
+        plp.rightMargin = dockOuter;
+        layer.addView(nowPlayingPanel, plp);
+
+        root.addView(layer, match());
+        pickerLayer = layer;
+        pickerCells = new ArrayList<>();
+        pickerCells.add(nowPlayingPanel);
+        layer.setAlpha(0f);
+        nowPlayingPanel.setTranslationY(-dp(10));
+        layer.animate().alpha(1f).setDuration(200).start();
+        nowPlayingPanel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
+        nowPlayingPanel.requestFocus();
+    }
+
     void showWeather() {
         Weather.Data d = Weather.cached(this);
         if (d == null) {
