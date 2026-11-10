@@ -50,7 +50,7 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -220,7 +220,7 @@ public class MainActivity extends Activity {
     int moveIndex = -1;
     boolean folderMode;
     boolean resumed;
-    private SurfaceView videoSurface;
+    private TextureView videoTexture;
     private VideoWallpaperPlayer videoPlayer;
     private boolean videoPlaying;
     private ImageView classicMediaChip;
@@ -623,17 +623,31 @@ public class MainActivity extends Activity {
         if (!Scenes.isScenesLook(this)) {
             setWallpaper(wallStyle);
         }
-        // The video wallpaper surface: first child, behind every logo and panel. The still
-        // wallpaper stays visible until the decoder renders its first frame, then hides.
-        videoSurface = new SurfaceView(this);
-        videoSurface.setZOrderOnTop(false);
-        videoSurface.getHolder().setFixedSize(screenW, screenH);
-        videoSurface.getHolder().addCallback(new android.view.SurfaceHolder.Callback() {
-            @Override public void surfaceCreated(android.view.SurfaceHolder h) { syncVideoWallpaper(); }
-            @Override public void surfaceChanged(android.view.SurfaceHolder h, int f, int w, int h2) { }
-            @Override public void surfaceDestroyed(android.view.SurfaceHolder h) { stopVideoWallpaper(); }
+        // The video wallpaper as an in-hierarchy TextureView: it sits at index 0, so every logo,
+        // chip and panel composites above it, and the scene's own wallpaper layer is painted
+        // transparent in video mode (Scenes.ensureLoaded video_wall branch) to let it through.
+        // Decode is capped at the panel size so the GPU never ships 4K textures per frame.
+        videoTexture = new TextureView(this);
+        videoTexture.setOpaque(false);
+        videoTexture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
+                    int w, int h) {
+                Log.i("VideoWallpaper", "texture available");
+                st.setDefaultBufferSize(screenW, screenH);
+                syncVideoWallpaper();
+            }
+            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
+                    int w, int h) { }
+            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
+                Log.i("VideoWallpaper", "texture destroyed");
+                stopVideoWallpaper();
+                return true;
+            }
+            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {
+                videoFrames++;
+            }
         });
-        root.addView(videoSurface, 0, match());
+        root.addView(videoTexture, 0, match());
 
         root.addView(wallView, match());
 
@@ -5141,9 +5155,15 @@ public class MainActivity extends Activity {
 
     private void syncVideoWallpaper() {
         String style = Profiles.homePrefs(this).getString("wallpaper", "");
+        // Self-heal: the Custom Wallpapers sub-mode is the owner's declared intent. If it says
+        // video and the style pref disagrees (it was left empty by an earlier switch), follow it.
+        if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(this)
+                && !Scenes.VIDEO_WALLPAPER_ID.equals(style)) {
+            Profiles.homePrefs(this).edit().putString("wallpaper", Scenes.VIDEO_WALLPAPER_ID).apply();
+            style = Scenes.VIDEO_WALLPAPER_ID;
+        }
         boolean wanted = videoWanted();
-        boolean surfaceOk = videoSurface != null && videoSurface.getHolder().getSurface() != null
-                && videoSurface.getHolder().getSurface().isValid();
+        boolean surfaceOk = videoTexture != null && videoTexture.isAvailable();
         Log.i("VideoWallpaper", "sync: style=" + style + " wanted=" + wanted
                 + " hasCurrent=" + VideoCache.hasCurrent(this)
                 + " playbackPref=" + getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true)
@@ -5160,9 +5180,11 @@ public class MainActivity extends Activity {
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
+        handler.postDelayed(videoHealthTick, 2000L);
         videoPlayer = new MediaPlayerWallpaper();
         videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
             @Override public void onRenderingStarted() {
+                Log.i("VideoWallpaper", "onRenderingStarted -> hiding the still");
                 runOnUiThread(() -> { wallView.setVisibility(View.INVISIBLE); videoPlaying = true; });
             }
             @Override public void onError(Exception e) {
@@ -5174,10 +5196,24 @@ public class MainActivity extends Activity {
                 });
             }
         });
-        videoPlayer.start(videoSurface.getHolder(), f.getPath(), loop);
+        Log.i("VideoWallpaper", "start file=" + f.getName() + " bytes=" + f.length() + " loop=" + loop);
+        videoPlayer.start(videoTexture.getSurfaceTexture(), f.getPath(), loop);
     }
 
+    private final Runnable videoHealthTick = new Runnable() {
+        @Override public void run() {
+            if (videoPlayer != null) {
+                Log.i("VideoWallpaper", "health: playing=" + videoPlayer.playing()
+                        + " pos=" + NowPlaying.positionMs() + " frames=" + videoFrames);
+                handler.postDelayed(this, 2000L);
+            }
+        }
+    };
+    private int videoFrames;
+
     private void stopVideoWallpaper() {
+        handler.removeCallbacks(videoHealthTick);
+        Log.i("VideoWallpaper", "stop (playing=" + videoPlaying + ")");
         if (videoPlayer != null) {
             videoPlayer.stop();
             videoPlayer = null;

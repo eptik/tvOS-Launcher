@@ -1355,23 +1355,17 @@ public final class Scenes {
                 return ls;
             }
             if (VIDEO_WALLPAPER_ID.equals(base)) {
-                // Playback arrives with the video player (plan Task 5). Until then the scene shows
-                // the chosen clip's poster, or the standard fallback still — never a black screen.
-                Bitmap vBmp = VideoCache.currentPoster(c, 1920, 1080);
-                if (ls != null && ls.bg != null && !ls.bg.isRecycled() && vBmp == null && ls.customTs == -1L) {
+                // The clip plays in a TextureView that sits UNDER this view; the scene's own
+                // wallpaper layer must paint transparent so the video shows through, while the
+                // widgets and glass above keep compositing normally.
+                if (ls != null && ls.bg != null && !ls.bg.isRecycled() && ls.customTs == -2L) {
                     return ls;
                 }
                 if (ls != null) ls.recycle();
                 ls = new LoadedScene(VIDEO_WALLPAPER_SPEC);
-                if (vBmp != null && !vBmp.isRecycled()) {
-                    ls.ownsBg = false;
-                    ls.bg = vBmp;
-                } else {
-                    ls.customTs = -1L;
-                    ls.ownsBg = true;
-                    ls.bg = loadAssetBitmap(c, ALL[0].bgAsset, 1920, 1080);
-                }
-                bakeLoadedGlassFromBg(ls, false);
+                ls.customTs = -2L;
+                ls.ownsBg = true;
+                ls.bg = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888);   // fully transparent
                 cache.put(id, ls);
                 return ls;
             }

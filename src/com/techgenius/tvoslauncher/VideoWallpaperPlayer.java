@@ -1,6 +1,6 @@
 package com.techgenius.tvoslauncher;
 
-import android.view.SurfaceHolder;
+import android.graphics.SurfaceTexture;
 
 /** Playback contract for the video wallpaper; swap the engine without touching the launcher. */
 interface VideoWallpaperPlayer {
@@ -15,7 +15,7 @@ interface VideoWallpaperPlayer {
 
     void setListener(Listener listener);
 
-    void start(SurfaceHolder holder, String path, boolean loop);
+    void start(SurfaceTexture texture, String path, boolean loop);
 
     void stop();
 
@@ -35,16 +35,20 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     }
 
     @Override
-    public void start(SurfaceHolder holder, String path, boolean loop) {
+    public void start(SurfaceTexture texture, String path, boolean loop) {
         stop();
         try {
+            // Decode at the panel's size: the GPU then composites a 1080p texture instead of
+            // shipping 4K frames through the view hierarchy every frame.
+            texture.setDefaultBufferSize(1920, 1080);
             player = new android.media.MediaPlayer();
             player.setDataSource(path);
-            player.setDisplay(holder);
+            player.setSurface(new android.view.Surface(texture));
             player.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
             player.setVolume(0f, 0f);                       // a wallpaper is silent
             player.setLooping(loop);
             player.setOnInfoListener((mp, what, extra) -> {
+                android.util.Log.i("VideoWallpaper", "info what=" + what);
                 if (what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START
                         && listener != null) {
                     listener.onRenderingStarted();          // first frame is on screen
@@ -57,6 +61,7 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             });
             player.prepare();
             player.start();
+            android.util.Log.i("VideoWallpaper", "MediaPlayer started");
         } catch (Exception e) {
             stop();
             if (listener != null) listener.onError(e);
