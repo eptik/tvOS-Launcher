@@ -45,6 +45,7 @@ public final class Scenes {
     public static final String[] CUSTOM_IDS = {"custom", "custom_2", "custom_3", "custom_4", "custom_5"};
     public static final String FOLDER_SHUFFLE_ID = "folder_shuffle";
     public static final String REDDIT_WALLPAPER_ID = "reddit_wall";
+    public static final String VIDEO_WALLPAPER_ID = "video_wall";
     public static final String LOCK_CUSTOM_ID = "lock_custom";
     public static final String LOCK_FOLDER_SHUFFLE_ID = "lock_folder_shuffle";
 
@@ -164,6 +165,13 @@ public final class Scenes {
             68f, 190f, 48f,
             45f, 52f, false);
 
+    public static final Spec VIDEO_WALLPAPER_SPEC = new Spec(
+            VIDEO_WALLPAPER_ID, "Video Wallpapers", "Video Duvar Kağıtları",
+            null, null, null,
+            false, false, false,
+            68f, 190f, 48f,
+            45f, 52f, false);
+
     public static final Spec LOCK_CUSTOM_SPEC = new Spec(
             LOCK_CUSTOM_ID, "Custom Lock Image", "Özel Kilit Görseli",
             null, null, null,
@@ -212,6 +220,7 @@ public final class Scenes {
         return customSlotFromId(base) > 0
                 || FOLDER_SHUFFLE_ID.equals(base)
                 || REDDIT_WALLPAPER_ID.equals(base)
+                || VIDEO_WALLPAPER_ID.equals(base)
                 || LOCK_CUSTOM_ID.equals(base)
                 || LOCK_FOLDER_SHUFFLE_ID.equals(base)
                 || base.startsWith("photo:")
@@ -234,6 +243,11 @@ public final class Scenes {
     public static boolean isRedditWallpaperSelected(Context c) {
         if (c == null) return false;
         return getEnabledSceneIdsRaw(c).contains(REDDIT_WALLPAPER_ID);
+    }
+
+    public static boolean isVideoWallpaperSelected(Context c) {
+        if (c == null) return false;
+        return getEnabledSceneIdsRaw(c).contains(VIDEO_WALLPAPER_ID);
     }
 
     public static void setSelected(Context c, Object idOrIdx) {
@@ -285,6 +299,7 @@ public final class Scenes {
         }
         if (FOLDER_SHUFFLE_ID.equals(id)) return FOLDER_SHUFFLE_SPEC;
         if (REDDIT_WALLPAPER_ID.equals(id)) return REDDIT_WALLPAPER_SPEC;
+        if (VIDEO_WALLPAPER_ID.equals(id)) return VIDEO_WALLPAPER_SPEC;
         if (LOCK_CUSTOM_ID.equals(id)) return LOCK_CUSTOM_SPEC;
         if (LOCK_FOLDER_SHUFFLE_ID.equals(id)) return LOCK_FOLDER_SHUFFLE_SPEC;
         if (id.startsWith("photo:")) {
@@ -376,7 +391,7 @@ public final class Scenes {
     }
 
     public static List<String> getSceneOrder(Context c) {
-        String raw = prefs(c).getString("scene_order", "night,golden,water,fog,dawn,custom,custom_2,custom_3,custom_4,custom_5,folder_shuffle,reddit_wall");
+        String raw = prefs(c).getString("scene_order", "night,golden,water,fog,dawn,custom,custom_2,custom_3,custom_4,custom_5,folder_shuffle,reddit_wall,video_wall");
         List<String> out = new ArrayList<>();
         for (String part : raw.split(",")) {
             String p = part.trim();
@@ -397,6 +412,9 @@ public final class Scenes {
         }
         if (!out.contains(REDDIT_WALLPAPER_ID)) {
             out.add(REDDIT_WALLPAPER_ID);
+        }
+        if (!out.contains(VIDEO_WALLPAPER_ID)) {
+            out.add(VIDEO_WALLPAPER_ID);
         }
         return out;
     }

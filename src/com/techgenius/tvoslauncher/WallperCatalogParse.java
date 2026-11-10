@@ -35,7 +35,8 @@ public final class WallperCatalogParse {
         }
 
         public boolean kept() {
-            return width >= 3840 && height >= 2100 && !excluded(category);
+            // Owner floor: 2560x1440 — anything lower never reaches the catalogue.
+            return width >= 2560 && height >= 1400 && !excluded(category);
         }
 
         public static boolean excluded(String category) {

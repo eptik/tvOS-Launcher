@@ -4,7 +4,10 @@
 
 **Goal:** Add a `video_wall` wallpaper scene — 4K video wallpapers pulled from a most-liked wallper.app catalogue, picked manually on the TV, played behind the launcher exactly like the existing Reddit wallpaper mode plugs in.
 
-**Architecture:** `Scenes` already treats wallpapers as registered scene specs (Reddit mode is `REDDIT_WALLPAPER_ID` with a spec, an order slot and an enable flag); `CustomMedia.fetchNextRedditWallpaperAsync` is the fetch-and-set precedent. `video_wall` follows the same shape: a spec in `Scenes`, a catalog/cache service (`WallperCatalog` — already built and JVM-tested), a picker overlay, a bounded video cache, and a player behind an interface that the wallpaper layer starts/stops on mode selection. The Mac does the one thing the TV cannot: discovering wallper's signed video URLs (scrapling spike).
+**Architecture (owner picked Approach A, 2026-11-10):** `SurfaceView` + platform `MediaPlayer`,
+decoder-native scaling to the display's real size; TextureView and ExoPlayer/VLC were rejected
+(TextureView: near-total jank measured on the AF8 and heavy 4K composition; media3/libvlc: no
+Gradle, dependency cost) — the interface keeps B/C swappable. `Scenes` already treats wallpapers as registered scene specs (Reddit mode is `REDDIT_WALLPAPER_ID` with a spec, an order slot and an enable flag); `CustomMedia.fetchNextRedditWallpaperAsync` is the fetch-and-set precedent. `video_wall` follows the same shape: a spec in `Scenes`, a catalog/cache service (`WallperCatalog` — already built and JVM-tested), a picker overlay, a bounded video cache, and a player behind an interface that the wallpaper layer starts/stops on mode selection. The Mac does the one thing the TV cannot: discovering wallper's signed video URLs (scrapling spike).
 
 **Tech Stack:** Pure Java, `build.sh` (no Gradle), platform `MediaPlayer` (zero dependencies; VLC/ExoPlayer is a later, explicit decision), Node gate scripts, scrapling (Mac-side only), adb-shell client for device work.
 
@@ -15,7 +18,7 @@
 - Pure Java, no Gradle; every task must build with `bash build.sh`.
 - No new runtime dependencies (MediaPlayer first; adding VLC/ExoPlayer requires a separate owner decision).
 - `wallper.app/robots.txt`: only rendered pages (`/wallpapers?sort=Most+Liked`) — never `/api/` or `/_next/`.
-- Content filter fixed: exclude `anime`, `games`, `manga`, `pixelart`, `people`; clips must be ≥ 3840×2160. Already enforced by `WallperCatalogParse.kept()` and covered by `work/WallperCatalogTest.java`.
+- Catalog floor: ≥ 2560×1440 (owner amendment 2026-11-10); exclude `anime`, `games`, `manga`, `pixelart`, `people`. Enforced by `WallperCatalogParse.kept()`, covered by `work/WallperCatalogTest.java` (809 clips pass today).
 - Cache: disk only, ≤ 500 MB LRU in `files/videos/`; the signed URL is never cached, only the file.
 - AF8 (1 GB, API 26): playback OFF by default; any decode failure must fall back to the still wallpaper without crashing. Shield Pro is the performance target.
 - Apple motion: transitions ≤ 400 ms EASE; respect `ANIMATOR_DURATION_SCALE == 0`.
@@ -78,7 +81,8 @@
 **Files:**
 - Create: `src/com/techgenius/tvoslauncher/VideoWallpaperPicker.java` — glass overlay (same popover mechanics as Now Playing: fixed size, LiquidGlass, `pickerLayer`/`pickerCells`/`popoverReturn`) listing kept clips ranked by likes: preview thumbnail, name, category, likes; OK downloads with inline progress; long-press deletes from cache.
 - Create: `src/com/techgenius/tvoslauncher/VideoCache.java` — `files/videos/`, ≤ 500 MB LRU, `purgeExcluded(Set<String> categories)` on startup, `current()` → the chosen clip's file.
-- Modify: `SettingsActivity.java` — Apps page rows: "Video wallpapers" On/Off (device-gated), "Browse clips…", "Clear cache".
+- Modify: `SettingsActivity.java` — Apps page rows: "Video wallpapers" On/Off (device-gated), "Loop clip" On/Off, "Rotate clips" Off / 1:30 / 5 min (cycles the cached clips on a timer, crossfading through the poster frame over 400 ms EASE), "Browse clips…", "Clear cache".
+- Behaviour: the still wallpaper stays visible until the video's first frame renders (poster as the loading frame); playback stops when an app launches and resumes on Home; rotation swaps clips with that crossfade, never a hard cut.
 
 **Interfaces:**
 - Consumes: `WallperCatalog.loadAsync`, the Task 3 decision, `Scenes.VIDEO_WALLPAPER_ID`.
@@ -94,7 +98,7 @@
 
 **Files:**
 - Create: `src/com/techgenius/tvoslauncher/VideoWallpaperPlayer.java` — `interface { start(File, SurfaceView); stop(); setListener(Listener) }`, `Listener.onError(Throwable)`.
-- Create: `src/com/techgenius/tvoslauncher/MediaPlayerWallpaper.java` — `MediaPlayer` + `SurfaceView` behind the scene layer: muted, looping, surface sized to the panel (never a 4K surface), `VIDEO_SCALING_MODE_SCALE_TO_FIT`.
+- Create: `src/com/techgenius/tvoslauncher/MediaPlayerWallpaper.java` — `MediaPlayer` + `SurfaceView` mounted as root's first child (behind everything: "behind logos" falls out of SurfaceView's design), muted, `setLooping` per the Loop setting, `VIDEO_SCALING_MODE_SCALE_TO_FIT`, and `SurfaceHolder.setFixedSize(Ui.screen().x, Ui.screen().y)` so the decoder scales the 4K master to the panel's native size — never a smaller surface, never an upscaled one.
 - Modify: `MainActivity.java` / `SceneHome.java` — when `wallpaper` pref == `video_wall` and a clip is cached and playback enabled: mount the SurfaceView under the scene layer; stop on `onPause`, on mode switch, and on heavy overlays; `onError` → disable for the session + fall back to the still wallpaper + one Toast.
 
 **Interfaces:**
