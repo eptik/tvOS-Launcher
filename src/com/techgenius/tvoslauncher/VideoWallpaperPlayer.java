@@ -17,6 +17,9 @@ interface VideoWallpaperPlayer {
 
     void start(SurfaceTexture texture, String path, boolean loop);
 
+    /** Playback position in ms, or -1 when unknown — the stall watchdog reads this. */
+    int positionMs();
+
     void stop();
 
     boolean playing();
@@ -68,6 +71,14 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     }
 
     @Override
+    public int positionMs() {
+        try {
+            return player == null ? -1 : player.getCurrentPosition();
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     public void stop() {
         if (player != null) {
             // stop() throws in the Preparing state; release() alone is valid from any state.

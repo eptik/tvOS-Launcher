@@ -5144,7 +5144,9 @@ public class MainActivity extends Activity {
     /** The full forecast: a glass panel opening from the weather card in the top-left corner (or top-right weather shortcut in Night Scenes / Classic Big Clock). */
     /** True when the current wallpaper is the video scene and a clip is available. */
     private boolean videoWanted() {
-        return Scenes.VIDEO_WALLPAPER_ID.equals(Profiles.homePrefs(this).getString("wallpaper", ""))
+        // The Custom Wallpapers sub-mode is the single source of truth: when it is not video,
+        // nothing video-related runs, no matter what any other pref says.
+        return CustomMedia.isVideoWallpaperActiveOnCurrentLook(this)
                 && VideoCache.hasCurrent(this)
                 && getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true);
     }
@@ -5160,10 +5162,14 @@ public class MainActivity extends Activity {
     }
 
     private void startVideoWallpaper() {
-        if (videoPlaying) return;
+        if (videoPlayer != null) return;   // a sync in the start->first-frame window must not orphan the first player
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
+        videoLastPos = -1;
+        videoFrozenTicks = 0;
+        videoHandler.removeCallbacks(videoStallTick);
+        videoHandler.postDelayed(videoStallTick, 3000L);
         videoPlayer = new MediaPlayerWallpaper();
         final VideoWallpaperPlayer me = videoPlayer;
         videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
@@ -5171,6 +5177,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     if (videoPlayer != me) return;    // a stop landed between event and runnable
                     videoPlaying = true;
+                    videoStallSkips = 0;
                     wallView.setVisibility(View.INVISIBLE);
                     if (sceneHome != null && sceneHome.sceneView != null) {
                         sceneHome.sceneView.setVideoBackdropActive(true);
@@ -5189,21 +5196,64 @@ public class MainActivity extends Activity {
         videoPlayer.start(videoTexture.getSurfaceTexture(), f.getPath(), loop);
     }
 
+    // A decoder can "play" while freezing on one frame (e.g. a 4K clip on a device that cannot
+    // sustain it): position stops advancing but no error ever fires. Watch for it and degrade.
+    private int videoLastPos = -1;
+    private int videoFrozenTicks;
+    private int videoStallSkips;
+
+    private final Runnable videoStallTick = new Runnable() {
+        @Override public void run() {
+            if (videoPlayer == null || !videoPlaying) return;
+            int pos = videoPlayer.positionMs();
+            if (pos >= 0 && pos == videoLastPos) {
+                videoFrozenTicks++;
+            } else {
+                videoFrozenTicks = 0;
+            }
+            videoLastPos = pos;
+            if (videoFrozenTicks >= 3) {                      // ~9 s without time progression
+                Log.w("VideoWallpaper", "playback stalled at " + pos + " ms");
+                videoFrozenTicks = 0;
+                if (videoStallSkips < 2) {
+                    videoStallSkips++;
+                    CustomMedia.skipToNextVideoClipOnCurrentLook(MainActivity.this);
+                } else {
+                    stopVideoWallpaper();                     // nothing plays: keep the poster
+                    Toast.makeText(MainActivity.this,
+                            "Video too heavy for this TV — still wallpaper shown", Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+            videoHandler.postDelayed(this, 3000L);
+        }
+    };
+
     private void stopVideoWallpaper() {
+        videoHandler.removeCallbacks(videoStallTick);
+        videoHandler.removeCallbacks(videoRotateTick);
         if (videoPlayer != null) {
             videoPlayer.stop();
             videoPlayer = null;
         }
         videoPlaying = false;
         if (wallView != null) wallView.setVisibility(View.VISIBLE);
+        if (sceneHome != null && sceneHome.sceneView != null) {
+            sceneHome.sceneView.setVideoBackdropActive(false);
+        }
     }
+
+    // Dedicated handler: the shared handler is wiped by removeCallbacksAndMessages(null) on
+    // launch returns; a rotation posted there would never fire.
+    private final android.os.Handler videoHandler = new android.os.Handler(
+            android.os.Looper.getMainLooper());
 
     private void scheduleVideoRotation() {
         String rotate = getSharedPreferences("video_wall", MODE_PRIVATE).getString("rotate", "off");
-        handler.removeCallbacks(videoRotateTick);
+        videoHandler.removeCallbacks(videoRotateTick);
         if (!rotate.equals("90") && !rotate.equals("300")) return;
         long delay = rotate.equals("90") ? 90_000L : 300_000L;
-        handler.postDelayed(videoRotateTick, delay);
+        videoHandler.postDelayed(videoRotateTick, delay);
     }
 
     private final Runnable videoRotateTick = new Runnable() {
