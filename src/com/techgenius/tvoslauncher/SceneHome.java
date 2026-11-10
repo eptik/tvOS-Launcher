@@ -285,8 +285,8 @@ final class SceneHome {
         // the Now Playing popover (MainActivity.showNowPlaying).
         mediaBtn = new LinearLayout(host);
         mediaBtn.setOrientation(LinearLayout.HORIZONTAL);
-        mediaBtn.setGravity(Gravity.CENTER_VERTICAL);
-        mediaBtn.setPadding(dp(6), 0, dp(10), 0);
+        mediaBtn.setGravity(Gravity.CENTER);
+        mediaBtn.setPadding(0, 0, 0, 0);
         MainActivity.LiquidGlass mediaGlass = new MainActivity.LiquidGlass(
                 dp(21), 0x6614161C, host.glassSource, host.screenW, host.screenH, host.unit);
         mediaGlass.lens = dp(5);
@@ -296,7 +296,7 @@ final class SceneHome {
         mediaBtn.setClickable(true);
 
         mediaIcon = new ImageView(host);
-        mediaIcon.setImageBitmap(Glyphs.get("audio", dp(19), 0xFFF4F4F6));
+        mediaIcon.setImageBitmap(noteGlyph(dp(20), 0xFFF4F4F6));
         mediaBtn.addView(mediaIcon, new LinearLayout.LayoutParams(dp(19), dp(19)));
 
         mediaText = new TextView(host);
@@ -318,14 +318,15 @@ final class SceneHome {
         mediaBtn.setOnFocusChangeListener((v, has) -> {
             v.setForeground(has ? mediaFocusRing : null);
             LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) v.getLayoutParams();
-            // Collapsed: a 42x42 circle like the neighbours. Expanded: wrap to fit the title.
-            int want = has && NowPlaying.current() != null
-                    ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(42);
+            // Collapsed: a 42x42 circle with the note centred. Hover: widen, pad, reveal the title.
+            boolean expand = has && NowPlaying.current() != null;
+            int want = expand ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(42);
             if (lp.width != want) {
                 lp.width = want;
                 v.setLayoutParams(lp);
             }
-            mediaText.setVisibility(has && NowPlaying.current() != null ? View.VISIBLE : View.GONE);
+            v.setPadding(expand ? dp(12) : 0, 0, expand ? dp(12) : 0, 0);
+            mediaText.setVisibility(expand ? View.VISIBLE : View.GONE);
             v.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f)
                     .setDuration(180).setInterpolator(MainActivity.LIFT).start();
             if (has) {
@@ -487,6 +488,26 @@ final class SceneHome {
         if (weatherBtn == null) return;
         boolean show = isWeatherShortcutEnabled(host) && Weather.enabled(host);
         weatherBtn.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** An eighth note — the chip is about music, and Glyphs has no note. */
+    private static android.graphics.Bitmap noteGlyph(int px, int color) {
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas c = new android.graphics.Canvas(bmp);
+        android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        p.setColor(color);
+        p.setStyle(android.graphics.Paint.Style.FILL);
+        float u = px / 14f;
+        android.graphics.RectF head = new android.graphics.RectF(2.5f * u, 9f * u, 7f * u, 12.5f * u);
+        c.drawOval(head, p);
+        c.drawRect(6.2f * u, 2.5f * u, 7.4f * u, 10.8f * u, p);
+        android.graphics.Path flag = new android.graphics.Path();
+        flag.moveTo(7.4f * u, 2.5f * u);
+        flag.quadTo(11.5f * u, 4f * u, 9.5f * u, 8f * u);
+        flag.quadTo(9f * u, 5.5f * u, 7.4f * u, 5.5f * u);
+        flag.close();
+        c.drawPath(flag, p);
+        return bmp;
     }
 
     void refreshMediaBtn() {

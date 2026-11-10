@@ -30,6 +30,8 @@ public class NowPlayingPanel extends LinearLayout {
     static final float W = 320, H = 232;   // dp, like WeatherView's constants
 
     public interface Host {
+        void onPrevious();
+
         void onToggle();
 
         void onNext();
@@ -41,6 +43,7 @@ public class NowPlayingPanel extends LinearLayout {
     private final TextView app;
     private final android.widget.FrameLayout bar;
     private final View barFill;
+    private final ImageView prevBtn;
     private final ImageView toggleBtn;
     private final ImageView nextBtn;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -148,10 +151,14 @@ public class NowPlayingPanel extends LinearLayout {
         tlp.topMargin = dp(16);
         addView(transport, tlp);
 
+        prevBtn = transportButton("prev");
         toggleBtn = transportButton("play");
         nextBtn = transportButton("next");
+        LinearLayout.LayoutParams t0 = new LinearLayout.LayoutParams(dp(44), dp(44));
+        t0.rightMargin = dp(14);
         LinearLayout.LayoutParams t1 = new LinearLayout.LayoutParams(dp(44), dp(44));
         t1.rightMargin = dp(14);
+        transport.addView(prevBtn, t0);
         transport.addView(toggleBtn, t1);
         transport.addView(nextBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
     }
@@ -177,10 +184,16 @@ public class NowPlayingPanel extends LinearLayout {
         });
         b.setOnClickListener(v -> {
             if (host == null) return;
-            if (b == toggleBtn) host.onToggle();
+            if (b == prevBtn) host.onPrevious();
+            else if (b == toggleBtn) host.onToggle();
             else host.onNext();
         });
         return b;
+    }
+
+    /** Puts the remote focus on play/pause so the popover is immediately operable. */
+    public void focusTransport() {
+        toggleBtn.requestFocus();
     }
 
     public void setHost(Host host) {
@@ -211,6 +224,7 @@ public class NowPlayingPanel extends LinearLayout {
         artist.setText(t.artist == null ? "" : t.artist);
         app.setText(appName(t.pkg));
         toggleBtn.setImageBitmap(glyph(t.playing ? "pause" : "play", 0xFFF4F4F6, glyphPx));
+        prevBtn.setImageBitmap(glyph("prev", 0xFFF4F4F6, glyphPx));
         updateProgress();
     }
 
@@ -273,6 +287,14 @@ public class NowPlayingPanel extends LinearLayout {
                 path.close();
                 c.drawPath(path, p);
                 c.drawRoundRect(new RectF(10.4f * u, 2.5f * u, 11.5f * u, 11.5f * u), u / 2, u / 2, p);
+                break;
+            case "prev":
+                path.moveTo(11.5f * u, 2.5f * u);
+                path.lineTo(4.5f * u, 7 * u);
+                path.lineTo(11.5f * u, 11.5f * u);
+                path.close();
+                c.drawPath(path, p);
+                c.drawRoundRect(new RectF(2.5f * u, 2.5f * u, 3.6f * u, 11.5f * u), u / 2, u / 2, p);
                 break;
             default:
                 path.moveTo(4 * u, 2.5f * u);

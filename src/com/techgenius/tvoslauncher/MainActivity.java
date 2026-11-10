@@ -5126,12 +5126,13 @@ public class MainActivity extends Activity {
         glass.lens = dp(7);
         nowPlayingPanel.setBackground(glass);
         nowPlayingPanel.setHost(new NowPlayingPanel.Host() {
+            @Override public void onPrevious() { NowPlaying.skipPrevious(); }
             @Override public void onToggle() { NowPlaying.togglePlayPause(); }
             @Override public void onNext() { NowPlaying.skipNext(); }
         });
         nowPlayingPanel.setTrack(t);
         FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
-                dp(Math.round(NowPlayingPanel.W)), dp(Math.round(NowPlayingPanel.H)),
+                dp(Math.round(NowPlayingPanel.W)), ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP | Gravity.END);
         plp.topMargin = dp(24);
         plp.rightMargin = dockOuter;
@@ -5145,7 +5146,7 @@ public class MainActivity extends Activity {
         nowPlayingPanel.setTranslationY(-dp(10));
         layer.animate().alpha(1f).setDuration(200).start();
         nowPlayingPanel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
-        nowPlayingPanel.requestFocus();
+        nowPlayingPanel.focusTransport();   // the buttons are the operable part; focus them directly
     }
 
     void showWeather() {
