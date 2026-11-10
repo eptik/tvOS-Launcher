@@ -2332,6 +2332,21 @@ final class SceneHome {
             nwlp.topMargin = dp(2);
             card.addView(btnNextWall, nwlp);
             rows.add(btnNextWall);
+        } else if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(host)) {
+            View btnNextWall = makeGearOptionRow(
+                    "refresh",
+                    I18n.s(host, "Next wallpaper", "Sonraki duvar kağıdı"),
+                    I18n.s(host, "Skip to the next video clip", "Sonraki video klibine geç"),
+                    () -> {
+                        closeSheet();
+                        host.toast(I18n.s(host, "Loading next video clip…", "Sonraki video klibi yükleniyor…"));
+                        CustomMedia.skipToNextVideoClipOnCurrentLook(host);
+                    });
+            LinearLayout.LayoutParams nwlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            nwlp.topMargin = dp(2);
+            card.addView(btnNextWall, nwlp);
+            rows.add(btnNextWall);
         }
 
         for (View r : rows) r.setId(View.generateViewId());

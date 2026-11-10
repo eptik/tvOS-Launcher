@@ -38,9 +38,8 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     public void start(SurfaceTexture texture, String path, boolean loop) {
         stop();
         try {
-            // Decode at the panel's size: the GPU then composites a 1080p texture instead of
-            // shipping 4K frames through the view hierarchy every frame.
-            texture.setDefaultBufferSize(1920, 1080);
+            // Buffer size is already set to the display size by MainActivity's
+            // SurfaceTextureListener; do not override it here (a 4K panel wants native buffers).
             player = new android.media.MediaPlayer();
             player.setDataSource(path);
             player.setSurface(new android.view.Surface(texture));
@@ -71,8 +70,12 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     @Override
     public void stop() {
         if (player != null) {
+            // stop() throws in the Preparing state; release() alone is valid from any state.
             try {
                 player.stop();
+            } catch (Exception ignored) {
+            }
+            try {
                 player.release();
             } catch (Exception ignored) {
             }

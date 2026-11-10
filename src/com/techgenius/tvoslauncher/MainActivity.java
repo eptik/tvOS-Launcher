@@ -5149,15 +5149,7 @@ public class MainActivity extends Activity {
                 && getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true);
     }
 
-    private void syncVideoWallpaper() {
-        String style = Profiles.homePrefs(this).getString("wallpaper", "");
-        // Self-heal: the Custom Wallpapers sub-mode is the owner's declared intent. If it says
-        // video and the style pref disagrees (it was left empty by an earlier switch), follow it.
-        if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(this)
-                && !Scenes.VIDEO_WALLPAPER_ID.equals(style)) {
-            Profiles.homePrefs(this).edit().putString("wallpaper", Scenes.VIDEO_WALLPAPER_ID).apply();
-            style = Scenes.VIDEO_WALLPAPER_ID;
-        }
+    void syncVideoWallpaper() {
         boolean wanted = videoWanted();
         boolean surfaceOk = videoTexture != null && videoTexture.isAvailable();
         if (wanted && surfaceOk) {
@@ -5173,15 +5165,23 @@ public class MainActivity extends Activity {
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
         videoPlayer = new MediaPlayerWallpaper();
+        final VideoWallpaperPlayer me = videoPlayer;
         videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
             @Override public void onRenderingStarted() {
-                runOnUiThread(() -> { wallView.setVisibility(View.INVISIBLE); videoPlaying = true; });
+                runOnUiThread(() -> {
+                    if (videoPlayer != me) return;    // a stop landed between event and runnable
+                    videoPlaying = true;
+                    wallView.setVisibility(View.INVISIBLE);
+                    if (sceneHome != null && sceneHome.sceneView != null) {
+                        sceneHome.sceneView.setVideoBackdropActive(true);
+                    }
+                });
             }
             @Override public void onError(Exception e) {
                 Log.w("VideoWallpaper", "playback failed — falling back to the still", e);
                 runOnUiThread(() -> {
-                    videoPlaying = false;
-                    wallView.setVisibility(View.VISIBLE);
+                    if (videoPlayer != me) return;
+                    stopVideoWallpaper();             // releases the errored decoder
                     Toast.makeText(MainActivity.this, "Video wallpaper failed — still shown", Toast.LENGTH_SHORT).show();
                 });
             }

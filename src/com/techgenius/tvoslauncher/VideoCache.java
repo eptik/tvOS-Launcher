@@ -48,6 +48,12 @@ final class VideoCache {
         return key != null && videoFile(c, key).exists();
     }
 
+    /** Identity of the current clip for cheap cache checks (0 when nothing is picked). */
+    static long currentKeyHash(Context c) {
+        String key = prefs(c).getString("current_key", null);
+        return key == null ? 0L : key.hashCode();
+    }
+
     static File current(Context c) {
         String key = prefs(c).getString("current_key", null);
         return key == null ? null : videoFile(c, key);

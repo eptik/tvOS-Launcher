@@ -1742,14 +1742,17 @@ public final class CustomMedia {
         List<String[]> cached = VideoCache.cachedClips(c);
         if (cached.size() < 2) return;
         String cur = prefs(c).getString("current_key", "");
-        int idx = 0;
+        int idx = -1;
         for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
         VideoCache.setCurrentKey(c, cached.get((idx + 1) % cached.size())[0]);
-        if (c instanceof MainActivity) {
-            MainActivity act = (MainActivity) c;
+        // The overlay passes an AccessibilityService as the context, so resolve the activity
+        // through its live instance; the scene cache and the running player must both refresh.
+        MainActivity act = MainActivity.activeInstance;
+        if (act != null) {
             if (act.sceneHome != null && act.sceneHome.sceneView != null) {
                 act.sceneHome.sceneView.onVideoWallpaperUpdated();
             }
+            act.syncVideoWallpaper();
         }
     }
 

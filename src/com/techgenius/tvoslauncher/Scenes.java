@@ -930,6 +930,15 @@ public final class Scenes {
      * foreground mountain/tree cutouts, and the date + weather line.
      */
     public static final class SceneView extends View {
+    /** True while the video player is rendering: the video_wall scene paints no backdrop. */
+    public boolean videoBackdropActive;
+
+    public void setVideoBackdropActive(boolean active) {
+        if (videoBackdropActive == active) return;
+        videoBackdropActive = active;
+        invalidate();
+    }
+
         public interface OnSceneChangedListener {
             void onSceneChanged(Bitmap currentBgBitmap);
         }
@@ -1355,17 +1364,32 @@ public final class Scenes {
                 return ls;
             }
             if (VIDEO_WALLPAPER_ID.equals(base)) {
-                // The clip plays in a TextureView that sits UNDER this view; the scene's own
-                // wallpaper layer must paint transparent so the video shows through, while the
-                // widgets and glass above keep compositing normally.
-                if (ls != null && ls.bg != null && !ls.bg.isRecycled() && ls.customTs == -2L) {
-                    return ls;
+                // The clip plays on a surface UNDER this view. While playback is active the scene
+                // must paint NO backdrop (drawScene early-returns on a null bg) so the video shows
+                // through; before the first frame (or on failure) the poster still is shown.
+                boolean videoActive = videoBackdropActive;
+                long keyHash = VideoCache.currentKeyHash(c);
+                if (ls != null && ls.bg == null && videoActive) {
+                    return ls;                                   // playing: keep the hole open
+                }
+                if (ls != null && ls.customTs == keyHash && !videoActive) {
+                    return ls;                                   // same poster, nothing changed
                 }
                 if (ls != null) ls.recycle();
                 ls = new LoadedScene(VIDEO_WALLPAPER_SPEC);
-                ls.customTs = -2L;
-                ls.ownsBg = true;
-                ls.bg = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888);   // fully transparent
+                Bitmap vBmp = VideoCache.currentPoster(c, 1920, 1080);
+                if (videoActive) {
+                    ls.bg = null;                                // the surface owns the pixels
+                    ls.ownsBg = false;
+                } else if (vBmp != null) {
+                    ls.ownsBg = false;
+                    ls.bg = vBmp;
+                } else {
+                    ls.ownsBg = true;
+                    ls.bg = loadAssetBitmap(c, ALL[0].bgAsset, 1920, 1080);
+                }
+                ls.customTs = keyHash;
+                if (ls.bg != null) bakeLoadedGlassFromBg(ls, false);
                 cache.put(id, ls);
                 return ls;
             }
