@@ -753,7 +753,7 @@ public class MainActivity extends Activity {
         // Now Playing chip (Classic look): mirrors the weather button; opens the Now Playing popover.
         classicMediaChip = new ImageView(this);
         classicMediaChip.setScaleType(ImageView.ScaleType.CENTER);
-        classicMediaChip.setImageBitmap(Glyphs.get("audio", dp(19), Color.WHITE));
+        classicMediaChip.setImageBitmap(SceneHome.noteGlyph(dp(20), Color.WHITE));
         LiquidGlass cmGlass = new LiquidGlass(btn / 2f, 0x1F000000, glassSource, screenW, screenH, unit).adaptive();
         cmGlass.lens = dp(4);
         classicMediaChip.setBackground(cmGlass);
@@ -764,7 +764,7 @@ public class MainActivity extends Activity {
         cmLit.setColor(Color.WHITE);
         classicMediaChip.setOnFocusChangeListener((v, has) -> {
             classicMediaChip.setBackground(has ? cmLit : cmGlass);
-            classicMediaChip.setImageBitmap(Glyphs.get("audio", dp(19), has ? 0xFF111114 : Color.WHITE));
+            classicMediaChip.setImageBitmap(SceneHome.noteGlyph(dp(20), has ? 0xFF111114 : Color.WHITE));
             v.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).setDuration(200).setInterpolator(LIFT).start();
             if (has) onClassicNonAppFocused();
         });
@@ -2926,7 +2926,8 @@ public class MainActivity extends Activity {
                 default: return false;
             }
         }
-        if (f == classicWeatherButton || f == refreshButton || f == searchButton || f == ccButton || f == avatarView) {
+        boolean mediaRowVisible = classicMediaChip != null && classicMediaChip.getVisibility() == View.VISIBLE;
+        if (f == classicMediaChip || f == classicWeatherButton || f == refreshButton || f == searchButton || f == ccButton || f == avatarView) {
             // Status row, left to right: Weather (if Big Clock), Refresh, Search, Control Center, profile.
             if (k == KeyEvent.KEYCODE_DPAD_LEFT) {
                 if (down) {
@@ -2935,6 +2936,11 @@ public class MainActivity extends Activity {
                     else if (f == searchButton) refreshButton.requestFocus();
                     else if (f == refreshButton && classicWeatherButton != null && classicWeatherButton.getVisibility() == View.VISIBLE) {
                         classicWeatherButton.requestFocus();
+                    } else if (f == classicWeatherButton && mediaRowVisible) {
+                        classicMediaChip.requestFocus();
+                    } else if (f == classicMediaChip) {
+                        if (switcher.getVisibility() == View.VISIBLE) switcher.requestFocus();
+                        else if (weatherShown()) weatherCard.requestFocus();
                     } else if (switcher.getVisibility() == View.VISIBLE) switcher.requestFocus();
                     else if (weatherShown()) weatherCard.requestFocus();
                 }
@@ -2942,7 +2948,8 @@ public class MainActivity extends Activity {
             }
             if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
                 if (down) {
-                    if (f == classicWeatherButton) refreshButton.requestFocus();
+                    if (f == classicMediaChip) classicWeatherButton.requestFocus();
+                    else if (f == classicWeatherButton) refreshButton.requestFocus();
                     else if (f == refreshButton) searchButton.requestFocus();
                     else if (f == searchButton) ccButton.requestFocus();
                     else if (f == ccButton && avatarView != null && avatarView.getVisibility() == View.VISIBLE) avatarView.requestFocus();
@@ -5519,7 +5526,8 @@ public class MainActivity extends Activity {
 
     boolean statusFocused() {
         View f = getCurrentFocus();
-        return f != null && (f == ccButton || f == avatarView || f == refreshButton || f == searchButton || f == classicWeatherButton);
+        return f != null && (f == ccButton || f == avatarView || f == refreshButton || f == searchButton
+                || f == classicWeatherButton || f == classicMediaChip);
     }
 
     /** Directional focus inside a popover: nearest cell whose centre lies in that direction. */

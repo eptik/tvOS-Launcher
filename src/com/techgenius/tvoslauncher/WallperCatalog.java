@@ -24,53 +24,17 @@ import java.util.Locale;
  */
 final class WallperCatalog {
 
-    static final class Clip {
-        final String slug, name, category, previewUrl, videoKey;
-        final int width, height, likes, durationSec;
-
-        Clip(String slug, String name, String category, String previewUrl, String videoKey,
-             int width, int height, int likes, int durationSec) {
-            this.slug = slug;
-            this.name = name;
-            this.category = category;
-            this.previewUrl = previewUrl;
-            this.videoKey = videoKey;
-            this.width = width;
-            this.height = height;
-            this.likes = likes;
-            this.durationSec = durationSec;
-        }
-
-        boolean kept() {
-            return width >= 3840 && height >= 2100 && !excluded(category);
-        }
-
-        static boolean excluded(String category) {
-            if (category == null) return false;
-            switch (category.toLowerCase(Locale.ROOT)) {
-                case "anime":
-                case "games":
-                case "manga":
-                case "pixelart":
-                case "people":
-                    return true;
-                default:
-                    return false;
-            }
-        }
-    }
-
-    private static final String PAGE = "https://www.wallper.app/wallpapers?sort=Most+Liked";
     private static final String TAG = "WallperCatalog";
-    private static final String PREFS = "wallper";
+    private static final String PAGE = "https://www.wallper.app/wallpapers?sort=Most+Liked";
     private static final long TTL_MS = 24L * 60 * 60 * 1000;
+    private static final String PREFS = "wallper";
 
     private WallperCatalog() {
     }
 
     /** Pure text -> clips, no Android calls; covered by work/WallperCatalogTest.java. */
-    static List<Clip> parse(String html) {
-        List<Clip> out = new ArrayList<>();
+    static List<WallperCatalogParse.Clip> parse(String html) {
+        List<WallperCatalogParse.Clip> out = new ArrayList<>();
         if (html == null) return out;
         String unescaped = html
                 .replace("\\\\\\\"", "\"")     // \" -> " (JSON-in-JSON, first pass)
@@ -92,7 +56,7 @@ final class WallperCatalog {
                 String res = o.optString("resolution");
                 int x = res.indexOf('x');
                 if (x <= 0) continue;
-                Clip c = new Clip(
+                WallperCatalogParse.Clip c = new WallperCatalogParse.Clip(
                         o.optString("slug"),
                         o.optString("name"),
                         o.optString("categorySlug"),
@@ -118,23 +82,23 @@ final class WallperCatalog {
         }
     }
 
-    static List<Clip> kept(List<Clip> all) {
-        List<Clip> out = new ArrayList<>();
-        for (Clip c : all) if (c.kept()) out.add(c);
+    static List<WallperCatalogParse.Clip> kept(List<WallperCatalogParse.Clip> all) {
+        List<WallperCatalogParse.Clip> out = new ArrayList<>();
+        for (WallperCatalogParse.Clip c : all) if (c.kept()) out.add(c);
         out.sort((a, b) -> Integer.compare(b.likes, a.likes));
         return out;
     }
 
     /** Cached catalogue (24 h). Network and parsing run off the main thread; callers get the cache. */
-    static List<Clip> load(Context c) {
-        List<Clip> cached = fromCache(c);
+    static List<WallperCatalogParse.Clip> load(Context c) {
+        List<WallperCatalogParse.Clip> cached = fromCache(c);
         if (cached != null) return cached;
         final Context app = c.getApplicationContext();
         new Thread(() -> {
             try {
-                List<Clip> clips = kept(parse(fetch(PAGE)));
+                List<WallperCatalogParse.Clip> clips = WallperCatalogParse.kept(WallperCatalogParse.parse(fetch(PAGE)));
                 JSONArray arr = new JSONArray();
-                for (Clip k : clips) {
+                for (WallperCatalogParse.Clip k : clips) {
                     arr.put(new JSONObject()
                             .put("slug", k.slug).put("name", k.name).put("category", k.category)
                             .put("w", k.width).put("h", k.height).put("likes", k.likes)
@@ -151,15 +115,15 @@ final class WallperCatalog {
         return cached == null ? new ArrayList<>() : cached;
     }
 
-    private static List<Clip> fromCache(Context c) {
+    private static List<WallperCatalogParse.Clip> fromCache(Context c) {
         long fetched = prefs(c).getLong("fetched", 0);
         if (System.currentTimeMillis() - fetched > TTL_MS) return null;
         try {
             JSONArray arr = new JSONArray(prefs(c).getString("catalog", "[]"));
-            List<Clip> out = new ArrayList<>();
+            List<WallperCatalogParse.Clip> out = new ArrayList<>();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);
-                out.add(new Clip(o.optString("slug"), o.optString("name"), o.optString("category"),
+                out.add(new WallperCatalogParse.Clip(o.optString("slug"), o.optString("name"), o.optString("category"),
                         o.optString("preview"), o.optString("key"), o.optInt("w"), o.optInt("h"),
                         o.optInt("likes"), o.optInt("dur")));
             }
@@ -171,6 +135,47 @@ final class WallperCatalog {
 
     private static android.content.SharedPreferences prefs(Context c) {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /** Callback for {@link #loadAsync}. */
+    public interface CatalogCallback {
+        void onCatalog(List<WallperCatalogParse.Clip> kept, long fetchedAtMs);
+    }
+
+    /**
+     * Cached-first, never blocking: a fresh catalogue answers on the calling thread, a stale or
+     * missing one refreshes in the background and answers once.
+     */
+    public static void loadAsync(Context c, CatalogCallback cb) {
+        List<WallperCatalogParse.Clip> cached = fromCache(c);
+        if (cached != null) {
+            cb.onCatalog(WallperCatalogParse.kept(cached), prefs(c).getLong("fetched", 0));
+            return;
+        }
+        final Context app = c.getApplicationContext();
+        new Thread(() -> {
+            List<WallperCatalogParse.Clip> out = new ArrayList<>();
+            long at = 0;
+            try {
+                out = WallperCatalogParse.kept(WallperCatalogParse.parse(fetch(PAGE)));
+                JSONArray arr = new JSONArray();
+                for (WallperCatalogParse.Clip k : out) {
+                    arr.put(new JSONObject()
+                            .put("slug", k.slug).put("name", k.name).put("category", k.category)
+                            .put("w", k.width).put("h", k.height).put("likes", k.likes)
+                            .put("dur", k.durationSec).put("preview", k.previewUrl)
+                            .put("key", k.videoKey));
+                }
+                at = System.currentTimeMillis();
+                prefs(app).edit().putString("catalog", arr.toString()).putLong("fetched", at).apply();
+                Log.i(TAG, "catalog " + out.size());
+            } catch (Exception e) {
+                Log.w(TAG, "catalog fetch failed", e);
+            }
+            final List<WallperCatalogParse.Clip> result = out;
+            final long atFinal = at;
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> cb.onCatalog(result, atFinal));
+        }, "wallper-catalog").start();
     }
 
     private static String fetch(String page) throws Exception {

@@ -492,7 +492,7 @@ final class SceneHome {
     }
 
     /** An eighth note — the chip is about music, and Glyphs has no note. */
-    private static android.graphics.Bitmap noteGlyph(int px, int color) {
+    public static android.graphics.Bitmap noteGlyph(int px, int color) {
         android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888);
         android.graphics.Canvas c = new android.graphics.Canvas(bmp);
         android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);

@@ -2665,9 +2665,8 @@ public class SettingsActivity extends Activity {
         } else if (subMode == CustomMedia.CUSTOM_MODE_VIDEO) {
             section(tr("VIDEO WALLPAPER OPTIONS", "VIDEO DUVAR KAĞIDI SEÇENEKLERİ"));
             row(tr("Browse clips…", "Kliplere göz at…"),
-                    () -> tr("Catalog + player land in the next build ›", "Katalog ve oynatıcı sıradaki sürümde ›"),
-                    () -> showStatusMsg(tr("The clip browser and playback arrive with the video player update.",
-                                           "Klip tarayıcı ve oynatma, video oynatıcı güncellemesiyle geliyor.")));
+                    () -> tr("Browse and pick a clip ›", "Bir klip seç ›"),
+                    () -> startActivity(new android.content.Intent(this, VideoPickerActivity.class)));
             row(tr("Loop clip", "Klibi döngüle"),
                     () -> videoPrefs().getBoolean("loop", true)
                             ? tr("On — the clip repeats", "Açık — klip tekrar eder")
