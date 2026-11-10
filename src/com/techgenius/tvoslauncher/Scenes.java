@@ -445,6 +445,9 @@ public final class Scenes {
             if (customSubMode == CustomMedia.CUSTOM_MODE_REDDIT) {
                 return Collections.singletonList(REDDIT_WALLPAPER_ID);
             }
+            if (customSubMode == CustomMedia.CUSTOM_MODE_VIDEO) {
+                return Collections.singletonList(VIDEO_WALLPAPER_ID);
+            }
             if (customSubMode == CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE
                     && CustomMedia.hasWallpaperShuffleFolder(c, CustomMedia.SCOPE_SCENE)) {
                 return Collections.singletonList(FOLDER_SHUFFLE_ID);
@@ -469,6 +472,11 @@ public final class Scenes {
             }
             if (REDDIT_WALLPAPER_ID.equals(p)) {
                 if (!customModeOn || customSubMode != CustomMedia.CUSTOM_MODE_REDDIT) {
+                    continue;
+                }
+            }
+            if (VIDEO_WALLPAPER_ID.equals(p)) {
+                if (!customModeOn || customSubMode != CustomMedia.CUSTOM_MODE_VIDEO) {
                     continue;
                 }
             }
@@ -512,7 +520,8 @@ public final class Scenes {
         if (CustomMedia.isCustomWallpaperEnabled(c, CustomMedia.SCOPE_SCENE)) return true;
         List<String> enabled = getEnabledSceneIds(c);
         for (String id : enabled) {
-            if (customSlotFromId(id) > 0 || FOLDER_SHUFFLE_ID.equals(id) || REDDIT_WALLPAPER_ID.equals(id)) {
+            if (customSlotFromId(id) > 0 || FOLDER_SHUFFLE_ID.equals(id) || REDDIT_WALLPAPER_ID.equals(id)
+                    || VIDEO_WALLPAPER_ID.equals(id)) {
                 return true;
             }
         }

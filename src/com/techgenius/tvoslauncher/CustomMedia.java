@@ -65,6 +65,7 @@ public final class CustomMedia {
     public static final int CUSTOM_MODE_SINGLE_MULTI = 0;
     public static final int CUSTOM_MODE_FOLDER_SHUFFLE = 1;
     public static final int CUSTOM_MODE_REDDIT = 2;
+    public static final int CUSTOM_MODE_VIDEO = 3;
 
     public static final String[] DEFAULT_REDDIT_SUBS = {
         "wallpapers", "EarthPorn", "CityPorn", "SkyPorn",
@@ -769,6 +770,8 @@ public final class CustomMedia {
                     Scenes.setSelected(c, Scenes.FOLDER_SHUFFLE_ID);
                 } else if (sub == CUSTOM_MODE_REDDIT) {
                     Scenes.setSelected(c, Scenes.REDDIT_WALLPAPER_ID);
+                } else if (sub == CUSTOM_MODE_VIDEO) {
+                    Scenes.setSelected(c, Scenes.VIDEO_WALLPAPER_ID);
                 } else {
                     int activeSlot = getActiveCustomSlot(c, scope);
                     Scenes.setSelected(c, Scenes.customSlotToId(activeSlot));
@@ -786,6 +789,8 @@ public final class CustomMedia {
                     cp.edit().putInt("classic_wall", -2).apply();
                 } else if (sub == CUSTOM_MODE_REDDIT) {
                     cp.edit().putInt("classic_wall", -3).apply();
+                } else if (sub == CUSTOM_MODE_VIDEO) {
+                    cp.edit().putInt("classic_wall", -4).apply();
                 } else {
                     cp.edit().putInt("classic_wall", -1).apply();
                 }
@@ -810,13 +815,14 @@ public final class CustomMedia {
             int cw = c.getSharedPreferences("classic_prefs", Context.MODE_PRIVATE).getInt("classic_wall", 0);
             if (cw == -2) return CUSTOM_MODE_FOLDER_SHUFFLE;
             if (cw == -3) return CUSTOM_MODE_REDDIT;
+            if (cw == -4) return CUSTOM_MODE_VIDEO;
         }
         return CUSTOM_MODE_SINGLE_MULTI;
     }
 
     public static void setCustomWallpaperSubMode(Context c, String scope, int mode) {
         if (c == null || scope == null) return;
-        int m = Math.max(0, Math.min(2, mode));
+        int m = Math.max(0, Math.min(3, mode));
         prefs(c).edit().putInt("custom_wall_submode_" + scope, m).apply();
         if (isCustomWallpaperEnabled(c, scope)) {
             setCustomWallpaperEnabled(c, scope, true);
@@ -829,6 +835,8 @@ public final class CustomMedia {
             return I18n.s(c, "Shuffle Folder", "Klasörü Karıştır");
         } else if (m == CUSTOM_MODE_REDDIT) {
             return I18n.s(c, "Reddit Wallpapers", "Reddit Duvar Kağıtları");
+        } else if (m == CUSTOM_MODE_VIDEO) {
+            return I18n.s(c, "Video Wallpapers", "Video Duvar Kağıtları");
         }
         return I18n.s(c, "Single / Multi Wallpapers", "Tekli / Çoklu Duvar Kağıdı");
     }

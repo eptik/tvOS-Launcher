@@ -2540,6 +2540,14 @@ public class SettingsActivity extends Activity {
                     CustomMedia.fetchNextRedditWallpaperAsync(this, scope, null);
                     rebuildMainRows();
                 });
+        choiceRow(tr("Video Wallpapers", "Video Duvar Kağıtları"),
+                tr("4K/1440p+ video wallpapers from wallper.app, picked by you, played behind the interface",
+                   "wallper.app'ten 4K/1440p+ video duvar kağıtları — siz seçersiniz, arayüzün arkasında oynar"),
+                subMode == CustomMedia.CUSTOM_MODE_VIDEO,
+                () -> {
+                    CustomMedia.setCustomWallpaperSubMode(this, scope, CustomMedia.CUSTOM_MODE_VIDEO);
+                    rebuildMainRows();
+                });
 
         if (subMode == CustomMedia.CUSTOM_MODE_SINGLE_MULTI) {
             section(tr("CUSTOM WALLPAPERS (UNLIMITED)", "ÖZEL DUVAR KAĞITLARI (SINIRSIZ)"));
