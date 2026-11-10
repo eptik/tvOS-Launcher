@@ -203,6 +203,7 @@ final class SceneHome {
     void invalidateSceneGlass() {
         if (whoBar != null) whoBar.invalidate();
         if (weatherBtn != null) weatherBtn.invalidate();
+        if (mediaBtn != null) mediaBtn.invalidate();
         if (moonBtn != null) moonBtn.invalidate();
         if (dockBox != null) dockBox.invalidate();
         for (View c : shelfCards) c.invalidate();

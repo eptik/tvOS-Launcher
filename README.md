@@ -9,6 +9,15 @@ A fast, lightweight, tvOS 26 & macOS–inspired home screen for Android TV & Goo
 
 ---
 
+## 🔱 Fork additions (`eptik`)
+
+What this fork carries on top of upstream `v2.1.5`:
+
+- **Now Playing media chip** — a third chip in the SceneHome top bar, left of Weather. It appears only while something plays, expands on hover to show the track, and opens a glass **Now Playing popover**: round artwork, title/artist/app, a live progress bar, and previous · play-pause · next transport. Session preference: playing beats paused, Spotify > Bitchord > other.
+- **Video wallpaper mode** *(in planning — `docs/superpowers/plans/2026-11-10-video-wallpapers.md`)* — a `video_wall` scene beside Reddit Wallpapers, fed by a most-liked 4K video catalogue (wallper.app; no anime/games/manga/pixelart/people), manual picks, a 500 MB LRU cache, and a player that stays off on 1 GB devices by default.
+- Upstream's Nuvio/Stremio **Continue Watching** (`NuvioCloud` + the popup on the dock tile) is adopted as-is — this fork does not duplicate it.
+
+
 ## ✨ Highlights & Features
 
 - **Default Home Dashboard (4 Customizable Widgets)**

@@ -1229,6 +1229,7 @@ public class MainActivity extends Activity {
         if (clockBox != null) clockBox.invalidate();
         if (timeChipView != null) timeChipView.invalidate();
         if (classicWeatherButton != null) classicWeatherButton.invalidate();
+        if (classicMediaChip != null) classicMediaChip.invalidate();
         if (refreshButton != null) refreshButton.invalidate();
         if (searchButton != null) searchButton.invalidate();
         if (ccButton != null) ccButton.invalidate();
