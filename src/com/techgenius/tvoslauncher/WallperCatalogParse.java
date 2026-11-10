@@ -59,7 +59,7 @@ public final class WallperCatalogParse {
     private static final Pattern P_NAME = quoted("name");
     private static final Pattern P_CAT = quoted("categorySlug");
     private static final Pattern P_PREVIEW = quoted("previewImageKey");
-    private static final Pattern P_KEY = Pattern.compile("\"fileKey\":\"([^\"]*\\.mp4)\"");
+    private static final Pattern P_KEY = Pattern.compile("\"fileKey\":\"([^\"]*?)\\.mp4\"");
     private static final Pattern P_RES = Pattern.compile("\"resolution\":\"(\\d+)x(\\d+)\"");
     private static final Pattern P_LIKES = numeric("likes");
     private static final Pattern P_DUR = numeric("duration");

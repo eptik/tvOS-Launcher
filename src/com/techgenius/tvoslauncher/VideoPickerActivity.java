@@ -155,17 +155,18 @@ public class VideoPickerActivity extends Activity {
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         slp.leftMargin = dp(10);
-        if (VideoCache.isCurrent(this, c.videoKey)) state.setText("✓ current");
+        String key = bareKey(c);
+        if (VideoCache.isCurrent(this, key)) state.setText("✓ current");
+        else if (VideoCache.isCached(this, key)) state.setText("cached — hold to delete");
         state.setLayoutParams(slp);
         row.addView(state);
         row.setTag(state);
 
         row.setOnClickListener(v -> pick(c, state));
         row.setOnLongClickListener(v -> {
-            if (VideoCache.isCurrent(this, c.videoKey)) {
-                VideoCache.deleteCurrent(this);
-                state.setText("");
-                Toast.makeText(this, "Removed", Toast.LENGTH_SHORT).show();
+            if (VideoCache.isCached(this, key)) {
+                VideoCache.deleteClip(this, key);
+                Toast.makeText(this, "Deleted from storage", Toast.LENGTH_SHORT).show();
                 populate();
             }
             return true;
@@ -178,11 +179,16 @@ public class VideoPickerActivity extends Activity {
             Toast.makeText(this, "Already downloading a clip", Toast.LENGTH_SHORT).show();
             return;
         }
-        downloadingKey = c.videoKey;
+        // Defensive: older cached catalogues carried keys that already ended in .mp4.
+        String key = bareKey(c);
+        downloadingKey = key;
         state.setText("Downloading… 0%");
-        String videoUrl = CDN + "/wallper-user-generated/" + c.videoKey + ".mp4";
+        String videoUrl = CDN + "/wallper-user-generated/" + key + ".mp4";
         new Thread(() -> {
             try {
+                // FileOutputStream never creates parents: without this the write fails with
+                // FileNotFoundException (No such file or directory) — the failure the owner hit.
+                new File(getFilesDir(), "videos").mkdirs();
                 File tmp = new File(getCacheDir(), "clip.part");
                 HttpURLConnection conn = (HttpURLConnection) new URL(videoUrl).openConnection();
                 conn.setConnectTimeout(8000);
@@ -203,7 +209,7 @@ public class VideoPickerActivity extends Activity {
                     }
                 }
                 conn.disconnect();
-                File dst = VideoCache.videoFile(this, c.videoKey);
+                File dst = VideoCache.videoFile(this, key);
                 if (!tmp.renameTo(dst)) {
                     try (java.io.FileInputStream in2 = new java.io.FileInputStream(tmp);
                          FileOutputStream out2 = new FileOutputStream(dst)) {
@@ -213,8 +219,8 @@ public class VideoPickerActivity extends Activity {
                     }
                     tmp.delete();
                 }
-                copyPoster(c);
-                VideoCache.setCurrent(this, c.videoKey, c.slug, c.name, c.category);
+                copyPoster(c, key, c.previewUrl);
+                VideoCache.setCurrent(this, key, c.slug, c.name, c.category);
                 VideoCache.evict(this);
                 runOnUiThread(() -> {
                     state.setText("✓ current");
@@ -224,21 +230,23 @@ public class VideoPickerActivity extends Activity {
             } catch (Exception e) {
                 Log.w(TAG, "download failed", e);
                 new File(getCacheDir(), "clip.part").delete();
+                String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                String shortMsg = msg.length() > 60 ? msg.substring(0, 60) + "…" : msg;
                 runOnUiThread(() -> {
-                    state.setText("Failed — try again");
+                    state.setText("Failed: " + shortMsg);
                     downloadingKey = null;
                 });
             }
         }, "clip-download").start();
     }
 
-    private void copyPoster(WallperCatalogParse.Clip c) {
+    private void copyPoster(WallperCatalogParse.Clip c, String key, String previewUrl) {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(c.previewUrl).openConnection();
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(20000);
             try (InputStream in = conn.getInputStream();
-                 FileOutputStream out = new FileOutputStream(VideoCache.posterFile(this, c.videoKey))) {
+                 FileOutputStream out = new FileOutputStream(VideoCache.posterFile(this, key))) {
                 byte[] buf = new byte[16384];
                 int n;
                 while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
@@ -248,6 +256,11 @@ public class VideoPickerActivity extends Activity {
         } catch (Exception e) {
             Log.w(TAG, "poster download failed", e);
         }
+    }
+
+    private static String bareKey(WallperCatalogParse.Clip c) {
+        return c.videoKey.endsWith(".mp4")
+                ? c.videoKey.substring(0, c.videoKey.length() - 4) : c.videoKey;
     }
 
     private void loadThumb(ImageView target, String url) {

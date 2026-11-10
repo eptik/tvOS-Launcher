@@ -32,11 +32,15 @@ final class VideoCache {
     }
 
     static File videoFile(Context c, String key) {
-        return new File(new File(c.getFilesDir(), "videos"), key + ".mp4");
+        File dir = new File(c.getFilesDir(), "videos");
+        dir.mkdirs();
+        return new File(dir, key + ".mp4");
     }
 
     static File posterFile(Context c, String key) {
-        return new File(new File(c.getFilesDir(), "videos"), key + ".png");
+        File dir = new File(c.getFilesDir(), "videos");
+        dir.mkdirs();
+        return new File(dir, key + ".png");
     }
 
     static boolean hasCurrent(Context c) {
@@ -70,6 +74,37 @@ final class VideoCache {
         return scaled;
     }
 
+    /** Cached clips that still exist on disk, oldest metadata first (rotation order). */
+    static List<String[]> cachedClips(Context c) {
+        List<String[]> out = new ArrayList<>();
+        try {
+            JSONArray meta = new JSONArray(prefs(c).getString("meta", "[]"));
+            for (int i = 0; i < meta.length(); i++) {
+                JSONObject o = meta.getJSONObject(i);
+                String key = o.optString("key");
+                if (videoFile(c, key).exists()) {
+                    out.add(new String[]{key, o.optString("slug"), o.optString("name"), o.optString("category")});
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    /** Re-points the current clip without re-downloading (rotation). */
+    static void setCurrentKey(Context c, String key) {
+        if (key == null) return;
+        SharedPreferences p = prefs(c);
+        p.edit().putString("current_key", key)
+                .putLong("ts_" + key, System.currentTimeMillis()).apply();
+        for (String[] m : cachedClips(c)) {
+            if (m[0].equals(key)) {
+                p.edit().putString("current_name", m[2]).putString("current_category", m[3]).apply();
+            }
+        }
+        evict(c);
+    }
+
     /** Records a freshly downloaded clip as the current one and trims the cache to its cap. */
     static void setCurrent(Context c, String key, String slug, String name, String category) {
         SharedPreferences p = prefs(c);
@@ -90,6 +125,32 @@ final class VideoCache {
 
     static boolean isCurrent(Context c, String key) {
         return key != null && key.equals(prefs(c).getString("current_key", null));
+    }
+
+    /** Deletes any cached clip by key (picker long-press), regardless of whether it is current. */
+    static void deleteClip(Context c, String key) {
+        if (key == null) return;
+        videoFile(c, key).delete();
+        posterFile(c, key).delete();
+        try {
+            JSONArray meta = new JSONArray(prefs(c).getString("meta", "[]"));
+            JSONArray out = new JSONArray();
+            for (int i = 0; i < meta.length(); i++) {
+                JSONObject o = meta.getJSONObject(i);
+                if (!key.equals(o.optString("key"))) out.put(o);
+            }
+            prefs(c).edit().putString("meta", out.toString()).apply();
+        } catch (Exception ignored) {
+        }
+        if (key.equals(prefs(c).getString("current_key", null))) {
+            prefs(c).edit().remove("current_key").remove("current_slug")
+                    .remove("current_name").remove("current_category").apply();
+        }
+    }
+
+    /** True when the clip's video file is already in the cache. */
+    static boolean isCached(Context c, String key) {
+        return key != null && videoFile(c, key).exists();
     }
 
     /** Deletes the picked clip (picker long-press). */

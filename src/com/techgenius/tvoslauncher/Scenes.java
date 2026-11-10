@@ -1095,7 +1095,23 @@ public final class Scenes {
             }
         }
 
-        public void onRedditWallpaperUpdated() {
+                public void onVideoWallpaperUpdated() {
+            java.util.Iterator<Map.Entry<String, LoadedScene>> it = cache.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, LoadedScene> e = it.next();
+                if (VIDEO_WALLPAPER_ID.equals(baseSceneId(e.getKey()))) {
+                    LoadedScene ls = e.getValue();
+                    if (ls != null) ls.recycle();
+                    it.remove();
+                }
+            }
+            ensureLoaded(currentId);
+            notifySceneBackdrop();
+            cachedFrameKey = null;
+            invalidate();
+        }
+
+    public void onRedditWallpaperUpdated() {
             java.util.Iterator<Map.Entry<String, LoadedScene>> it = cache.entrySet().iterator();
             while (it.hasNext()) {
                 Map.Entry<String, LoadedScene> e = it.next();

@@ -29,7 +29,7 @@ public class WallperCatalogTest {
         check("preview built from key",
                 kept.stream().allMatch(c -> c.previewUrl.startsWith("https://cdn.wallper.app/previews/")),
                 kept.size());
-        check("video key kept", kept.stream().allMatch(c -> c.videoKey.endsWith(".mp4")), kept.size());
+        check("video key carries no extension", kept.stream().allMatch(c -> !c.videoKey.endsWith(".mp4")), kept.size());
 
         if (failures > 0) {
             System.out.println("WallperCatalogTest: " + failures + " failure(s)");

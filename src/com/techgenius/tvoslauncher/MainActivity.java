@@ -39,6 +39,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
+import android.util.Log;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -49,6 +50,7 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -62,6 +64,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.service.notification.NotificationListenerService;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -217,6 +220,9 @@ public class MainActivity extends Activity {
     int moveIndex = -1;
     boolean folderMode;
     boolean resumed;
+    private SurfaceView videoSurface;
+    private VideoWallpaperPlayer videoPlayer;
+    private boolean videoPlaying;
     private ImageView classicMediaChip;
     private NowPlayingPanel nowPlayingPanel;
     private final NowPlaying.Listener npListener = this::onTrackChanged;
@@ -439,6 +445,8 @@ public class MainActivity extends Activity {
         activeInstance = this;
         NowPlaying.addListener(npListener);
         NowPlaying.refresh(getApplicationContext());
+        syncVideoWallpaper();
+        scheduleVideoRotation();
         handler.postDelayed(() -> NowPlaying.refresh(getApplicationContext()), 1500L);
         clearLaunchDim();
         boolean wasReturningFromSettings = returningFromSettings;
@@ -615,6 +623,18 @@ public class MainActivity extends Activity {
         if (!Scenes.isScenesLook(this)) {
             setWallpaper(wallStyle);
         }
+        // The video wallpaper surface: first child, behind every logo and panel. The still
+        // wallpaper stays visible until the decoder renders its first frame, then hides.
+        videoSurface = new SurfaceView(this);
+        videoSurface.setZOrderOnTop(false);
+        videoSurface.getHolder().setFixedSize(screenW, screenH);
+        videoSurface.getHolder().addCallback(new android.view.SurfaceHolder.Callback() {
+            @Override public void surfaceCreated(android.view.SurfaceHolder h) { syncVideoWallpaper(); }
+            @Override public void surfaceChanged(android.view.SurfaceHolder h, int f, int w, int h2) { }
+            @Override public void surfaceDestroyed(android.view.SurfaceHolder h) { stopVideoWallpaper(); }
+        });
+        root.addView(videoSurface, 0, match());
+
         root.addView(wallView, match());
 
         sceneHome = new SceneHome(this);
@@ -5112,6 +5132,78 @@ public class MainActivity extends Activity {
     }
 
     /** The full forecast: a glass panel opening from the weather card in the top-left corner (or top-right weather shortcut in Night Scenes / Classic Big Clock). */
+    /** True when the current wallpaper is the video scene and a clip is available. */
+    private boolean videoWanted() {
+        return Scenes.VIDEO_WALLPAPER_ID.equals(Profiles.homePrefs(this).getString("wallpaper", ""))
+                && VideoCache.hasCurrent(this)
+                && getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true);
+    }
+
+    private void syncVideoWallpaper() {
+        if (videoWanted() && videoSurface != null && videoSurface.getHolder().getSurface() != null
+                && videoSurface.getHolder().getSurface().isValid()) {
+            startVideoWallpaper();
+        } else {
+            stopVideoWallpaper();
+        }
+    }
+
+    private void startVideoWallpaper() {
+        if (videoPlaying) return;
+        File f = VideoCache.current(this);
+        if (f == null || !f.exists()) return;
+        boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
+        videoPlayer = new MediaPlayerWallpaper();
+        videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
+            @Override public void onRenderingStarted() {
+                runOnUiThread(() -> { wallView.setVisibility(View.INVISIBLE); videoPlaying = true; });
+            }
+            @Override public void onError(Exception e) {
+                Log.w("VideoWallpaper", "playback failed — falling back to the still", e);
+                runOnUiThread(() -> {
+                    videoPlaying = false;
+                    wallView.setVisibility(View.VISIBLE);
+                    Toast.makeText(MainActivity.this, "Video wallpaper failed — still shown", Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+        videoPlayer.start(videoSurface.getHolder(), f.getPath(), loop);
+    }
+
+    private void stopVideoWallpaper() {
+        if (videoPlayer != null) {
+            videoPlayer.stop();
+            videoPlayer = null;
+        }
+        videoPlaying = false;
+        if (wallView != null) wallView.setVisibility(View.VISIBLE);
+    }
+
+    private void scheduleVideoRotation() {
+        String rotate = getSharedPreferences("video_wall", MODE_PRIVATE).getString("rotate", "off");
+        handler.removeCallbacks(videoRotateTick);
+        if (!rotate.equals("90") && !rotate.equals("300")) return;
+        long delay = rotate.equals("90") ? 90_000L : 300_000L;
+        handler.postDelayed(videoRotateTick, delay);
+    }
+
+    private final Runnable videoRotateTick = new Runnable() {
+        @Override public void run() {
+            if (!videoWanted()) return;
+            List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
+            if (cached.size() < 2) { scheduleVideoRotation(); return; }
+            String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
+            int idx = 0;
+            for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
+            String next = cached.get((idx + 1) % cached.size())[0];
+            VideoCache.setCurrentKey(MainActivity.this, next);
+            if (sceneHome != null && sceneHome.sceneView != null) sceneHome.sceneView.onVideoWallpaperUpdated();
+            stopVideoWallpaper();
+            syncVideoWallpaper();
+            scheduleVideoRotation();
+        }
+    };
+
     /** Now Playing popover from the SceneHome media chip; same mechanics as the weather panel. */
     void showNowPlaying() {
         NowPlaying.Track t = NowPlaying.current();

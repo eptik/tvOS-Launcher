@@ -28,6 +28,8 @@ final class WallperCatalog {
     private static final String PAGE = "https://www.wallper.app/wallpapers?sort=Most+Liked";
     private static final long TTL_MS = 24L * 60 * 60 * 1000;
     private static final String PREFS = "wallper";
+    /** Bumped when the parsed shape changes: stale caches re-fetch instead of serving old keys. */
+    private static final int PARSE_SCHEMA = 2;
 
     private WallperCatalog() {
     }
@@ -116,6 +118,7 @@ final class WallperCatalog {
     }
 
     private static List<WallperCatalogParse.Clip> fromCache(Context c) {
+        if (prefs(c).getInt("parse_schema", 0) < PARSE_SCHEMA) return null;
         long fetched = prefs(c).getLong("fetched", 0);
         if (System.currentTimeMillis() - fetched > TTL_MS) return null;
         try {
@@ -167,7 +170,8 @@ final class WallperCatalog {
                             .put("key", k.videoKey));
                 }
                 at = System.currentTimeMillis();
-                prefs(app).edit().putString("catalog", arr.toString()).putLong("fetched", at).apply();
+                prefs(app).edit().putString("catalog", arr.toString())
+                        .putLong("fetched", at).putInt("parse_schema", PARSE_SCHEMA).apply();
                 Log.i(TAG, "catalog " + out.size());
             } catch (Exception e) {
                 Log.w(TAG, "catalog fetch failed", e);

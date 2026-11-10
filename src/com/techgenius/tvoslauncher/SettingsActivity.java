@@ -2664,6 +2664,11 @@ public class SettingsActivity extends Activity {
             }
         } else if (subMode == CustomMedia.CUSTOM_MODE_VIDEO) {
             section(tr("VIDEO WALLPAPER OPTIONS", "VIDEO DUVAR KAĞIDI SEÇENEKLERİ"));
+            row(tr("Play video", "Videoyu oynat"),
+                    () -> videoPrefs().getBoolean("playback", true)
+                            ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                    () -> videoPrefs().edit().putBoolean("playback",
+                            !videoPrefs().getBoolean("playback", true)).apply());
             row(tr("Browse clips…", "Kliplere göz at…"),
                     () -> tr("Browse and pick a clip ›", "Bir klip seç ›"),
                     () -> startActivity(new android.content.Intent(this, VideoPickerActivity.class)));
