@@ -1115,6 +1115,10 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    private android.content.SharedPreferences videoPrefs() {
+        return getSharedPreferences("video_wall", MODE_PRIVATE);
+    }
+
     void pageApps() {
         if (showingHiddenApps) {
             pageHiddenApps();
@@ -2658,7 +2662,32 @@ public class SettingsActivity extends Activity {
                     }
                 }
             }
-        } else if (subMode == CustomMedia.CUSTOM_MODE_REDDIT) {
+        } else if (subMode == CustomMedia.CUSTOM_MODE_VIDEO) {
+            section(tr("VIDEO WALLPAPER OPTIONS", "VIDEO DUVAR KAĞIDI SEÇENEKLERİ"));
+            row(tr("Browse clips…", "Kliplere göz at…"),
+                    () -> tr("Catalog + player land in the next build ›", "Katalog ve oynatıcı sıradaki sürümde ›"),
+                    () -> showStatusMsg(tr("The clip browser and playback arrive with the video player update.",
+                                           "Klip tarayıcı ve oynatma, video oynatıcı güncellemesiyle geliyor.")));
+            row(tr("Loop clip", "Klibi döngüle"),
+                    () -> videoPrefs().getBoolean("loop", true)
+                            ? tr("On — the clip repeats", "Açık — klip tekrar eder")
+                            : tr("Off — hold last frame", "Kapalı — son kare kalır"),
+                    () -> videoPrefs().edit().putBoolean("loop", !videoPrefs().getBoolean("loop", true)).apply());
+            row(tr("Rotate clips", "Klipleri döndür"),
+                    () -> {
+                        String mode = videoPrefs().getString("rotate", "off");
+                        if (mode.equals("90")) return tr("Every 1:30 ›", "Her 1:30 ›");
+                        if (mode.equals("300")) return tr("Every 5 min ›", "Her 5 dk ›");
+                        return tr("Off ›", "Kapalı ›");
+                    },
+                    () -> {
+                        String cur = videoPrefs().getString("rotate", "off");
+                        videoPrefs().edit().putString("rotate",
+                                cur.equals("off") ? "90" : cur.equals("90") ? "300" : "off").apply();
+                    });
+        }
+
+        if (subMode == CustomMedia.CUSTOM_MODE_REDDIT) {
             section(tr("REDDIT WALLPAPER OPTIONS", "REDDIT DUVAR KAĞIDI SEÇENEKLERİ"));
             row(tr("Auto-change interval", "Otomatik değişim süresi"),
                     () -> CustomMedia.getRedditIntervalLabel(this, scope),
