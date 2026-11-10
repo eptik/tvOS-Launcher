@@ -35,6 +35,8 @@ What this fork carries on top of upstream `v2.1.5`:
   - **Big Clock for Classic Appearance**: Brings the authentic iOS/tvOS-style big glass clock, greeting, date, and top-right weather shortcut to Classic mode by default (disabling the top mini-clock), with configurable **Clock Alignment (`Left / Center / Right`)**.
   - **Dynamic & Custom Wallpaper Clock Alignment**: Dynamic alignment for default night scenes that adapts per wallpaper, plus independent Left / Center / Right alignment for custom wallpapers. Digits feature authentic Liquid Glass shading matching the dock with adaptive background luminance sampling.
 
+- **Video Wallpapers (`eptik`)**: looping video wallpaper mode backed by the `wallper.app` catalog (most-liked first, 2560×1440 floor, anime/games/manga/pixel-art excluded), with an on-device picker (browse categories, download with live progress, long-press delete), a bounded 500 MB LRU cache, poster stills while the decoder warms up, clip rotation (90 s / 5 min / off), and a "Next wallpaper" entry on the settings-wheel popup and in the Control Panel. Playback rides a `TextureView` + platform `MediaPlayer`; decode buffers follow the display size. Devices that cannot sustain a clip's resolution (e.g. 4K on the Sony AF8's MediaTek decoder) are caught by a stall watchdog that auto-skips to the next cached clip and, if nothing can play, falls back to the poster still with a notice. On 1080p-panel TVs, pre-downscaling clips to 1920×1080 (H.264, CRF 22) keeps playback smooth.
+
 - **Expanded Custom Wallpaper Engine**
   - **Single & Multi-Wallpaper**: Unlimited wallpaper selection from internal storage or USB drives (no 5-wallpaper limit).
   - **Folder Shuffle**: Automatically cycles through all wallpapers in any chosen folder.
