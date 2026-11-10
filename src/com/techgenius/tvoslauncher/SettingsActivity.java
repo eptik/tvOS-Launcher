@@ -2550,6 +2550,9 @@ public class SettingsActivity extends Activity {
                 subMode == CustomMedia.CUSTOM_MODE_VIDEO,
                 () -> {
                     CustomMedia.setCustomWallpaperSubMode(this, scope, CustomMedia.CUSTOM_MODE_VIDEO);
+                    // The sub-mode alone must carry the selection: a stale/empty wallpaper pref
+                    // left the owner on a black screen.
+                    Scenes.setSelected(this, Scenes.VIDEO_WALLPAPER_ID);
                     rebuildMainRows();
                 });
 

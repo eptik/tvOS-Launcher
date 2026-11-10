@@ -1507,6 +1507,24 @@ public final class ControlPanelOverlay {
         card.addView(btnTvSettings, tvlp);
         rows.add(btnTvSettings);
 
+        if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(svc)) {
+            View btnNextClip = makeOverlayGearOptionRow(
+                    svc,
+                    u,
+                    "refresh",
+                    I18n.s(svc, "Next clip", "Sonraki klip"),
+                    I18n.s(svc, "Skip to the next video clip", "Sonraki video klibine geç"),
+                    () -> {
+                        closeSheet.run();
+                        CustomMedia.skipToNextVideoClipOnCurrentLook(svc);
+                    });
+            LinearLayout.LayoutParams nclp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            nclp.topMargin = dp(u, 2);
+            card.addView(btnNextClip, nclp);
+            rows.add(btnNextClip);
+        }
+
         if (CustomMedia.isRedditWallpaperActiveOnCurrentLook(svc)) {
             View btnNextWall = makeOverlayGearOptionRow(
                     svc,

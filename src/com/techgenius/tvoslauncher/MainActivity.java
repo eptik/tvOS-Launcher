@@ -5140,8 +5140,15 @@ public class MainActivity extends Activity {
     }
 
     private void syncVideoWallpaper() {
-        if (videoWanted() && videoSurface != null && videoSurface.getHolder().getSurface() != null
-                && videoSurface.getHolder().getSurface().isValid()) {
+        String style = Profiles.homePrefs(this).getString("wallpaper", "");
+        boolean wanted = videoWanted();
+        boolean surfaceOk = videoSurface != null && videoSurface.getHolder().getSurface() != null
+                && videoSurface.getHolder().getSurface().isValid();
+        Log.i("VideoWallpaper", "sync: style=" + style + " wanted=" + wanted
+                + " hasCurrent=" + VideoCache.hasCurrent(this)
+                + " playbackPref=" + getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true)
+                + " surfaceOk=" + surfaceOk);
+        if (wanted && surfaceOk) {
             startVideoWallpaper();
         } else {
             stopVideoWallpaper();
@@ -5189,9 +5196,10 @@ public class MainActivity extends Activity {
 
     private final Runnable videoRotateTick = new Runnable() {
         @Override public void run() {
+            scheduleVideoRotation();                      // keep the timer alive regardless of state
             if (!videoWanted()) return;
             List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
-            if (cached.size() < 2) { scheduleVideoRotation(); return; }
+            if (cached.size() < 2) return;
             String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
             int idx = 0;
             for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
@@ -5200,7 +5208,6 @@ public class MainActivity extends Activity {
             if (sceneHome != null && sceneHome.sceneView != null) sceneHome.sceneView.onVideoWallpaperUpdated();
             stopVideoWallpaper();
             syncVideoWallpaper();
-            scheduleVideoRotation();
         }
     };
 

@@ -318,16 +318,7 @@ final class SceneHome {
         mediaFocusRing.setStroke(dp(2), Color.WHITE);
         mediaBtn.setOnFocusChangeListener((v, has) -> {
             v.setForeground(has ? mediaFocusRing : null);
-            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) v.getLayoutParams();
-            // Collapsed: a 42x42 circle with the note centred. Hover: widen, pad, reveal the title.
-            boolean expand = has && NowPlaying.current() != null;
-            int want = expand ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(42);
-            if (lp.width != want) {
-                lp.width = want;
-                v.setLayoutParams(lp);
-            }
-            v.setPadding(expand ? dp(12) : 0, 0, expand ? dp(12) : 0, 0);
-            mediaText.setVisibility(expand ? View.VISIBLE : View.GONE);
+            layoutMediaChip(has && NowPlaying.current() != null);
             v.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f)
                     .setDuration(180).setInterpolator(MainActivity.LIFT).start();
             if (has) {
@@ -491,6 +482,22 @@ final class SceneHome {
         weatherBtn.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
+    /** One geometry owner for the media chip: collapsed = 42x42 circle, hover = title pill. */
+    private void layoutMediaChip(boolean expanded) {
+        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) mediaBtn.getLayoutParams();
+        int want = expanded ? ViewGroup.LayoutParams.WRAP_CONTENT : dp(42);
+        if (lp.width != want) {
+            lp.width = want;
+            mediaBtn.setLayoutParams(lp);
+        }
+        mediaBtn.setPadding(expanded ? dp(12) : 0, 0, expanded ? dp(12) : 0, 0);
+        mediaText.setVisibility(expandable() ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean expandable() {
+        return NowPlaying.current() != null && mediaBtn.hasFocus();
+    }
+
     /** An eighth note — the chip is about music, and Glyphs has no note. */
     public static android.graphics.Bitmap noteGlyph(int px, int color) {
         android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888);
@@ -516,11 +523,7 @@ final class SceneHome {
         NowPlaying.Track t = NowPlaying.current();
         boolean show = t != null;
         mediaBtn.setVisibility(show ? View.VISIBLE : View.GONE);
-        LinearLayout.LayoutParams wlp = (LinearLayout.LayoutParams) mediaBtn.getLayoutParams();
-        if (!show && wlp.width != dp(42)) {
-            wlp.width = dp(42);
-            mediaBtn.setLayoutParams(wlp);
-        }
+        layoutMediaChip(show && mediaBtn.hasFocus());
         if (!show) {
             if (mediaBtn.hasFocus()) focusDock(focusedDockIdx);
             return;

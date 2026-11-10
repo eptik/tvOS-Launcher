@@ -1729,6 +1729,30 @@ public final class CustomMedia {
                 && getCustomWallpaperSubMode(c, scope) == CUSTOM_MODE_REDDIT;
     }
 
+    public static boolean isVideoWallpaperActiveOnCurrentLook(Context c) {
+        if (c == null) return false;
+        String scope = Scenes.isScenesLook(c) ? SCOPE_SCENE : SCOPE_CLASSIC;
+        return isCustomWallpaperEnabled(c, scope)
+                && getCustomWallpaperSubMode(c, scope) == CUSTOM_MODE_VIDEO;
+    }
+
+    /** The video counterpart of "Next wallpaper": advance to the next cached clip. */
+    public static void skipToNextVideoClipOnCurrentLook(Context c) {
+        if (c == null) return;
+        List<String[]> cached = VideoCache.cachedClips(c);
+        if (cached.size() < 2) return;
+        String cur = prefs(c).getString("current_key", "");
+        int idx = 0;
+        for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
+        VideoCache.setCurrentKey(c, cached.get((idx + 1) % cached.size())[0]);
+        if (c instanceof MainActivity) {
+            MainActivity act = (MainActivity) c;
+            if (act.sceneHome != null && act.sceneHome.sceneView != null) {
+                act.sceneHome.sceneView.onVideoWallpaperUpdated();
+            }
+        }
+    }
+
     public static void skipToNextRedditWallpaperOnCurrentLook(Context c, Runnable onUpdated) {
         if (c == null) return;
         String scope = Scenes.isScenesLook(c) ? SCOPE_SCENE : SCOPE_CLASSIC;
