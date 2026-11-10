@@ -632,20 +632,16 @@ public class MainActivity extends Activity {
         videoTexture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
                     int w, int h) {
-                Log.i("VideoWallpaper", "texture available");
                 st.setDefaultBufferSize(screenW, screenH);
                 syncVideoWallpaper();
             }
             @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
                     int w, int h) { }
             @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
-                Log.i("VideoWallpaper", "texture destroyed");
                 stopVideoWallpaper();
                 return true;
             }
-            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {
-                videoFrames++;
-            }
+            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) { }
         });
         root.addView(videoTexture, 0, match());
 
@@ -5164,10 +5160,6 @@ public class MainActivity extends Activity {
         }
         boolean wanted = videoWanted();
         boolean surfaceOk = videoTexture != null && videoTexture.isAvailable();
-        Log.i("VideoWallpaper", "sync: style=" + style + " wanted=" + wanted
-                + " hasCurrent=" + VideoCache.hasCurrent(this)
-                + " playbackPref=" + getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true)
-                + " surfaceOk=" + surfaceOk);
         if (wanted && surfaceOk) {
             startVideoWallpaper();
         } else {
@@ -5180,11 +5172,9 @@ public class MainActivity extends Activity {
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
-        handler.postDelayed(videoHealthTick, 2000L);
         videoPlayer = new MediaPlayerWallpaper();
         videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
             @Override public void onRenderingStarted() {
-                Log.i("VideoWallpaper", "onRenderingStarted -> hiding the still");
                 runOnUiThread(() -> { wallView.setVisibility(View.INVISIBLE); videoPlaying = true; });
             }
             @Override public void onError(Exception e) {
@@ -5196,24 +5186,10 @@ public class MainActivity extends Activity {
                 });
             }
         });
-        Log.i("VideoWallpaper", "start file=" + f.getName() + " bytes=" + f.length() + " loop=" + loop);
         videoPlayer.start(videoTexture.getSurfaceTexture(), f.getPath(), loop);
     }
 
-    private final Runnable videoHealthTick = new Runnable() {
-        @Override public void run() {
-            if (videoPlayer != null) {
-                Log.i("VideoWallpaper", "health: playing=" + videoPlayer.playing()
-                        + " pos=" + NowPlaying.positionMs() + " frames=" + videoFrames);
-                handler.postDelayed(this, 2000L);
-            }
-        }
-    };
-    private int videoFrames;
-
     private void stopVideoWallpaper() {
-        handler.removeCallbacks(videoHealthTick);
-        Log.i("VideoWallpaper", "stop (playing=" + videoPlaying + ")");
         if (videoPlayer != null) {
             videoPlayer.stop();
             videoPlayer = null;
