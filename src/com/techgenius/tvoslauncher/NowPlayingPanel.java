@@ -178,8 +178,12 @@ public class NowPlayingPanel extends LinearLayout {
         ring.setShape(GradientDrawable.OVAL);
         ring.setColor(Color.TRANSPARENT);
         ring.setStroke(dp(2), 0xFFFFFFFF);
+        // Inset so the 2 dp stroke sits inside the view bounds — flush to the edge it gets clipped
+        // at 12 and 6 o'clock, which read as a broken ring.
+        android.graphics.drawable.InsetDrawable ringInset =
+                new android.graphics.drawable.InsetDrawable(ring, dp(2));
         b.setOnFocusChangeListener((v, has) -> {
-            b.setForeground(has ? ring : null);
+            b.setForeground(has ? ringInset : null);
             b.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).setDuration(180).start();
         });
         b.setOnClickListener(v -> {
