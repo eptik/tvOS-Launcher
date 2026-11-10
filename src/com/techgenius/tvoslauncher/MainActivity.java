@@ -5215,15 +5215,17 @@ public class MainActivity extends Activity {
             if (videoFrozenTicks >= 3) {                      // ~9 s without time progression
                 Log.w("VideoWallpaper", "playback stalled at " + pos + " ms");
                 videoFrozenTicks = 0;
+                // Release the stalled decoder FIRST — skipToNext re-syncs through
+                // startVideoWallpaper, whose player guard would otherwise keep this one.
+                stopVideoWallpaper();
                 if (videoStallSkips < 2) {
                     videoStallSkips++;
                     CustomMedia.skipToNextVideoClipOnCurrentLook(MainActivity.this);
                 } else {
-                    stopVideoWallpaper();                     // nothing plays: keep the poster
                     Toast.makeText(MainActivity.this,
                             "Video too heavy for this TV — still wallpaper shown", Toast.LENGTH_LONG).show();
                 }
-                return;
+                return;   // the restart (skip or manual) re-arms this tick
             }
             videoHandler.postDelayed(this, 3000L);
         }
