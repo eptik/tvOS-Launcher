@@ -888,10 +888,24 @@ public class MainActivity extends Activity {
         // Elevation, not child index, decides draw order here — at index 1 the pill sat underneath
         // the scene layer and was invisible even with a live Spotify session.
         mediaPill.setElevation(dp(6));
+        // Same recipe as SceneHome's top-right chips: 42 dp, dark glass 0x6614161C, lens 5, rim .45,
+        // and a 2 dp white focus ring instead of a white fill.
+        LiquidGlass pillGlass = new LiquidGlass(dp(21), 0x6614161C, glassSource, screenW, screenH, unit);
+        pillGlass.lens = dp(5);
+        pillGlass.rimStrength = 0.45f;
+        mediaPill.setBackground(pillGlass);
+        GradientDrawable pillRing = new GradientDrawable();
+        pillRing.setCornerRadius(dp(21));
+        pillRing.setColor(Color.TRANSPARENT);
+        pillRing.setStroke(dp(2), Color.WHITE);
+        mediaPill.setOnFocusChangeListener((v, has) -> {
+            v.setForeground(has ? pillRing : null);
+            v.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f).setDuration(180)
+                    .setInterpolator(LIFT).start();
+        });
         FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.END);
-        mlp.topMargin = dp(24) + dp(34) + dp(12);
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(42), Gravity.TOP | Gravity.END);
+        mlp.topMargin = dp(24) + dp(42) + dp(10);
         mlp.rightMargin = dockOuter;
         root.addView(mediaPill, 1, mlp);
 
