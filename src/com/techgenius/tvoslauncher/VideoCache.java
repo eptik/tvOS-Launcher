@@ -88,7 +88,8 @@ final class VideoCache {
             for (int i = 0; i < meta.length(); i++) {
                 JSONObject o = meta.getJSONObject(i);
                 String key = o.optString("key");
-                if (videoFile(c, key).exists()) {
+                if (videoFile(c, key).exists()
+                        && !WallperCatalogParse.Clip.excluded(o.optString("category"))) {
                     out.add(new String[]{key, o.optString("slug"), o.optString("name"), o.optString("category")});
                 }
             }
@@ -105,7 +106,8 @@ final class VideoCache {
                 .putLong("ts_" + key, System.currentTimeMillis()).apply();
         for (String[] m : cachedClips(c)) {
             if (m[0].equals(key)) {
-                p.edit().putString("current_name", m[2]).putString("current_category", m[3]).apply();
+                p.edit().putString("current_slug", m[1]).putString("current_name", m[2])
+                        .putString("current_category", m[3]).apply();
             }
         }
         evict(c);

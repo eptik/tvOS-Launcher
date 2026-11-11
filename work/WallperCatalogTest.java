@@ -22,7 +22,7 @@ public class WallperCatalogTest {
                 && countCategory(kept, "games") == 0 && countCategory(kept, "manga") == 0
                 && countCategory(kept, "pixelart") == 0 && countCategory(kept, "people") == 0,
                 kept.size());
-        check("floor 2560x1440", kept.stream().allMatch(c -> c.width >= 2560 && c.height >= 1400), kept.size());
+        check("floor 2560x1440", kept.stream().allMatch(c -> c.width >= 2560 && c.height >= 1440), kept.size());
         check("kept is a healthy cut of the page", kept.size() >= 700, kept.size());
         check("sorted by likes",
                 kept.stream().noneMatch(c -> false) && isSorted(kept), kept.size());

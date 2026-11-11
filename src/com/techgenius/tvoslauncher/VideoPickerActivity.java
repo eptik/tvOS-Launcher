@@ -3,6 +3,7 @@ package com.techgenius.tvoslauncher;
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -48,6 +49,7 @@ public class VideoPickerActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle saved) {
+        VideoCache.purgeExcluded(this);   // drop cached clips from categories the owner excluded
         super.onCreate(saved);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         setContentView(build());
@@ -245,13 +247,26 @@ public class VideoPickerActivity extends Activity {
             HttpURLConnection conn = (HttpURLConnection) new URL(c.previewUrl).openConnection();
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(20000);
+            File dst = VideoCache.posterFile(this, key);
+            File tmp = new File(dst.getParentFile(), dst.getName() + ".tmp");
+            long written = 0;
             try (InputStream in = conn.getInputStream();
-                 FileOutputStream out = new FileOutputStream(VideoCache.posterFile(this, key))) {
+                 FileOutputStream out = new FileOutputStream(tmp)) {
                 byte[] buf = new byte[16384];
                 int n;
-                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); written += n; }
             } finally {
                 conn.disconnect();
+            }
+            // A 0-byte or undecodable poster must never replace a good one: the still fallback
+            // and the glass bake both read this file.
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(tmp.getPath(), o);
+            if (written > 0 && o.outWidth > 0) {
+                if (!tmp.renameTo(dst)) tmp.delete();
+            } else {
+                tmp.delete();
             }
         } catch (Exception e) {
             Log.w(TAG, "poster download failed", e);
