@@ -5267,16 +5267,9 @@ public class MainActivity extends Activity {
         @Override public void run() {
             scheduleVideoRotation();                      // keep the timer alive regardless of state
             if (!videoWanted()) return;
-            List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
-            if (cached.size() < 2) return;
-            String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
-            int idx = 0;
-            for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
-            String next = cached.get((idx + 1) % cached.size())[0];
-            VideoCache.setCurrentKey(MainActivity.this, next);
-            if (sceneHome != null && sceneHome.sceneView != null) sceneHome.sceneView.onVideoWallpaperUpdated();
-            stopVideoWallpaper();
-            syncVideoWallpaper();
+            // One owner for the swap logic (pick next, stop the player, refresh scene + glass,
+            // restart): the wheel button and this timer must behave identically.
+            CustomMedia.skipToNextVideoClipOnCurrentLook(MainActivity.this);
         }
     };
 
