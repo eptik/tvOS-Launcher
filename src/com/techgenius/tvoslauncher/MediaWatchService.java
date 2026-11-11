@@ -103,8 +103,32 @@ public class MediaWatchService extends NotificationListenerService {
         }
     }
 
+    private static java.util.List<MediaController> lastControllers;
+
+    /**
+     * The controller list for the now-playing pill, queried from inside the notification listener
+     * (whose access is guaranteed) — the activity-side query is rejected on some firmwares.
+     */
+    static java.util.List<MediaController> sessionsForPill() {
+        MediaWatchService s = instance;
+        if (s != null && s.msm != null) {
+            try {
+                java.util.List<MediaController> list =
+                        s.msm.getActiveSessions(new ComponentName(s, MediaWatchService.class));
+                if (list != null) {
+                    lastControllers = list;
+                    return list;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return lastControllers;
+    }
+
     void onSessions(List<MediaController> list) {
         if (list == null) return;
+        lastControllers = list;
+        NowPlaying.refresh(getApplicationContext());
         for (MediaController mc : list) {
             if (mc == null || mc.getSessionToken() == null) continue;
             if (!tracked.containsKey(mc.getSessionToken())) {

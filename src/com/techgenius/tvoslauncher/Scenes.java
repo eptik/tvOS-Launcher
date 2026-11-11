@@ -1389,7 +1389,19 @@ public final class Scenes {
                     ls.bg = loadAssetBitmap(c, ALL[0].bgAsset, 1920, 1080);
                 }
                 ls.customTs = keyHash;
-                if (ls.bg != null) bakeLoadedGlassFromBg(ls, false);
+                if (ls.bg != null) {
+                    bakeLoadedGlassFromBg(ls, false);
+                } else if (videoActive) {
+                    // The chips' glass must follow THIS clip, not the previous scene: bake from
+                    // the poster while the backdrop itself stays the live video surface.
+                    Bitmap pb = VideoCache.currentPoster(c, 480, 270);
+                    if (pb != null) {
+                        ls.bg = pb;
+                        bakeLoadedGlassFromBg(ls, false);
+                        ls.bg = null;
+                        pb.recycle();
+                    }
+                }
                 cache.put(id, ls);
                 return ls;
             }
@@ -1664,7 +1676,8 @@ public final class Scenes {
         }
 
         private void drawScene(Canvas canvas, LoadedScene ls, int w, int h, float alpha) {
-            if (ls.bg == null) return;
+            // A null bg is the video-wallpaper mode: the clip plays on the surface UNDER this
+            // view, so only the backdrop is skipped — the clock, greeting and shade keep drawing.
             int alphaInt = Math.round(255 * Math.max(0f, Math.min(1f, alpha)));
             boolean layerSave = alphaInt < 255;
             if (layerSave) {
@@ -1674,7 +1687,7 @@ public final class Scenes {
             Spec sp = ls.spec;
             if (!classicClockOnlyMode) {
                 // 1. Background image (center-crop)
-                drawCenterCrop(canvas, ls.bg, w, h);
+                if (ls.bg != null) drawCenterCrop(canvas, ls.bg, w, h);
 
                 // 2. Scene shade gradient
                 if ("water".equals(sp.id)) {
@@ -1731,6 +1744,9 @@ public final class Scenes {
 
             String timeStr = formatTime(ctx);
             float baseClockSizeU = classicClockOnlyMode ? 186f : sp.clockSizeU;
+            // Owner request: a much smaller, minimalist glass clock on every scene. The clock is
+            // anchored at its top edge and centred, so scaling the size alone keeps the layout.
+            baseClockSizeU *= 0.6f;
             float clockPx = (isRounded ? baseClockSizeU * 0.78f : isDuo ? baseClockSizeU * 0.84f : baseClockSizeU) * u;
             float scaleY = isRounded ? 1.24f : isDuo ? 1.24f : 1.0f;
             float letterSp = isDuo ? 0.01f : isRounded ? -0.01f : -0.02f;

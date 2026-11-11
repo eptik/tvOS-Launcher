@@ -5162,7 +5162,12 @@ public class MainActivity extends Activity {
     }
 
     private void startVideoWallpaper() {
-        if (videoPlayer != null) return;   // a sync in the start->first-frame window must not orphan the first player
+        // Skip and rotation replace the running clip in place: stopping here (instead of guarding)
+        // keeps the still hidden through the swap, so no poster flash between clips.
+        if (videoPlayer != null) {
+            videoPlayer.stop();
+            videoPlayer = null;
+        }
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
@@ -5231,7 +5236,7 @@ public class MainActivity extends Activity {
         }
     };
 
-    private void stopVideoWallpaper() {
+    void stopVideoWallpaper() {   // package-private: CustomMedia.skipToNext needs it
         videoHandler.removeCallbacks(videoStallTick);
         videoHandler.removeCallbacks(videoRotateTick);
         if (videoPlayer != null) {

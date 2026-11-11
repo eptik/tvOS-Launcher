@@ -1749,6 +1749,9 @@ public final class CustomMedia {
         // through its live instance; the scene cache and the running player must both refresh.
         MainActivity act = MainActivity.activeInstance;
         if (act != null) {
+            // Release the running player FIRST: startVideoWallpaper guards on the player field,
+            // so without this stop the skip silently keeps the old clip ("the button does nothing").
+            act.stopVideoWallpaper();
             if (act.sceneHome != null && act.sceneHome.sceneView != null) {
                 act.sceneHome.sceneView.onVideoWallpaperUpdated();
             }

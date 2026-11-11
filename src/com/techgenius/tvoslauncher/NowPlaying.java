@@ -116,7 +116,8 @@ public final class NowPlaying {
             MediaSessionManager manager =
                     (MediaSessionManager) context.getSystemService(Context.MEDIA_SESSION_SERVICE);
             if (manager == null) return;
-            List<MediaController> sessions = manager.getActiveSessions(component);
+            List<MediaController> sessions = MediaWatchService.sessionsForPill();
+            if (sessions == null) sessions = manager.getActiveSessions(component);
             // Selection lives in SessionPick (pure Java, JVM-tested): playing beats paused, Spotify
             // beats Bitchord beats anything else, and the session already followed wins ties so the
             // pill never flickers between equals.
