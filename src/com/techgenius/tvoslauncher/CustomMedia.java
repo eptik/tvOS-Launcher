@@ -1533,6 +1533,19 @@ public final class CustomMedia {
                         redditDeckIdxMap.put(scope, 0);
                     }
                 }
+                // Bounded seen-list: never repeat a post until the pool has been walked once
+                // (owner report: the rotation kept showing the same handful of wallpapers).
+                java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+                try {
+                    org.json.JSONArray arr = new org.json.JSONArray(
+                            prefs(c).getString("reddit_seen_" + scope, "[]"));
+                    for (int i = 0; i < arr.length() && i < 60; i++) seen.add(arr.optString(i));
+                } catch (Exception ignored) {
+                }
+                boolean allSeen = true;
+                for (String u : deck) if (!seen.contains(u)) { allSeen = false; break; }
+                if (allSeen) seen.clear();
+
                 Bitmap downloaded = null;
                 int attempts = 0;
                 while (deck != null && idx < deck.size() && attempts < 8) {
@@ -1542,8 +1555,16 @@ public final class CustomMedia {
                     synchronized (redditUrlDeckMap) {
                         redditDeckIdxMap.put(scope, idx);
                     }
+                    if (seen.contains(imgUrl)) continue;
+                    seen.add(imgUrl);
                     downloaded = downloadWallpaperUrl(imgUrl);
                     if (downloaded != null) break;
+                }
+                try {
+                    org.json.JSONArray arr2 = new org.json.JSONArray();
+                    for (String u : seen) arr2.put(u);
+                    prefs(c).edit().putString("reddit_seen_" + scope, arr2.toString()).apply();
+                } catch (Exception ignored) {
                 }
                 if (downloaded == null) {
                     // Fallback to curated 1080p landscape wallpapers if deck URLs failed
@@ -1610,8 +1631,10 @@ public final class CustomMedia {
             "https://old.reddit.com/r/" + joined + "/top.json?t=month&raw_json=1&limit=75",
             "https://api.reddit.com/r/" + joined + "/hot?raw_json=1&limit=75"
         };
+        java.util.Set<String> uniq = new java.util.LinkedHashSet<>();
         for (String apiUrl : endpoints) {
-            if (!urls.isEmpty()) break;
+            // All three endpoints are merged (issue: the deck reused the same hot set, so the
+            // rotation repeated the same handful); top?t=month adds older popular posts.
             java.net.HttpURLConnection conn = null;
             try {
                 conn = (java.net.HttpURLConnection) new java.net.URL(apiUrl).openConnection();
@@ -1663,7 +1686,7 @@ public final class CustomMedia {
                         }
                     }
                     if (candidate != null && !candidate.isEmpty()) {
-                        urls.add(candidate.replace("&amp;", "&"));
+                        uniq.add(candidate.replace("&amp;", "&"));
                     }
                 }
             } catch (Throwable ignored) {
@@ -1674,6 +1697,7 @@ public final class CustomMedia {
         if (urls.isEmpty()) {
             urls.addAll(getFallbackRedditWallpaperUrls());
         }
+        urls.addAll(uniq);
         return urls;
     }
 
