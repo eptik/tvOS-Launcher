@@ -967,6 +967,8 @@ public final class Scenes {
         private final TextPaint clockFrostPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private final TextPaint clockStrokePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private final TextPaint clockShadowPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private android.graphics.Paint modeCapPaint;
+
         private final TextPaint datePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private final TextPaint greetPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private final Rect srcRect = new Rect();
@@ -1949,9 +1951,41 @@ public final class Scenes {
             }
             canvas.drawText(fullHeader, dateX, dateBaselineY, datePaint);
 
+            // 6. Mode caption: names the active wallpaper engine on screen — the owner lost an
+            // hour to a silently active Reddit mode; this line makes the state visible.
+            if (!classicClockOnlyMode) {
+                String mode = describeActiveWallpaperEngine(ctx, baseSceneId(currentId));
+                if (mode != null && !mode.isEmpty()) {
+                    if (modeCapPaint == null) {
+                        modeCapPaint = new android.graphics.Paint(Paint.ANTI_ALIAS_FLAG);
+                        modeCapPaint.setLetterSpacing(0.01f);
+                        modeCapPaint.setShadowLayer(6f * u, 0f, 1.2f * u, Color.argb(120, 0, 0, 0));
+                    }
+                    modeCapPaint.setTextSize(datePx * 0.78f);
+                    modeCapPaint.setColor(darkDt ? Color.argb(150, 22, 32, 29)
+                            : Color.argb(165, 226, 230, 240));
+                    canvas.drawText(mode, dateX, dateBaselineY + datePx * 1.35f, modeCapPaint);
+                }
+            }
+
             if (layerSave) {
                 canvas.restore();
             }
+        }
+
+        /** One-line identity of the active wallpaper engine, or null for normal scenes. */
+        private static String describeActiveWallpaperEngine(Context c, String base) {
+            if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(c)) {
+                return I18n.s(c, "Video Wallpapers", "Video Duvar Kağıtları")
+                        + " · " + VideoCache.cachedClips(c).size();
+            }
+            if (CustomMedia.isRedditWallpaperActiveOnCurrentLook(c)) {
+                return I18n.s(c, "Reddit Wallpapers", "Reddit Duvar Kağıtları");
+            }
+            if (FOLDER_SHUFFLE_ID.equals(base)) {
+                return I18n.s(c, "Folder Shuffle", "Klasörü Karıştır");
+            }
+            return null;
         }
 
         private static String buildGreeting(Context c) {

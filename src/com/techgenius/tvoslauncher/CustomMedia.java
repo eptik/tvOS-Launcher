@@ -1762,19 +1762,28 @@ public final class CustomMedia {
 
     /** The video counterpart of "Next wallpaper": advance to the next cached clip. */
     public static void skipToNextVideoClipOnCurrentLook(Context c) {
+        skipVideoClip(c, 1);
+    }
+
+    /** Long-press on the wheel row: step back one clip without waiting a full rotation. */
+    public static void skipToPreviousVideoClipOnCurrentLook(Context c) {
+        skipVideoClip(c, -1);
+    }
+
+    private static void skipVideoClip(Context c, int offset) {
         if (c == null) return;
         List<String[]> cached = VideoCache.cachedClips(c);
         if (cached.size() < 2) return;
         String cur = prefs(c).getString("current_key", "");
         int idx = -1;
         for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
-        VideoCache.setCurrentKey(c, cached.get((idx + 1) % cached.size())[0]);
+        VideoCache.setCurrentKey(c, cached.get((idx + offset + cached.size()) % cached.size())[0]);
         // The overlay passes an AccessibilityService as the context, so resolve the activity
         // through its live instance; the scene cache and the running player must both refresh.
         MainActivity act = MainActivity.activeInstance;
         if (act != null) {
-            // Release the running player FIRST: startVideoWallpaper guards on the player field,
-            // so without this stop the skip silently keeps the old clip ("the button does nothing").
+            // Release the running player FIRST: the swap replaces it in place, so the old clip
+            // never lingers ("the button does nothing").
             act.stopVideoWallpaper();
             if (act.sceneHome != null && act.sceneHome.sceneView != null) {
                 act.sceneHome.sceneView.onVideoWallpaperUpdated();

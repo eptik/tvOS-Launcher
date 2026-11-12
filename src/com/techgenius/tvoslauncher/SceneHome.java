@@ -2342,6 +2342,13 @@ final class SceneHome {
                         host.toast(I18n.s(host, "Loading next video clip…", "Sonraki video klibi yükleniyor…"));
                         CustomMedia.skipToNextVideoClipOnCurrentLook(host);
                     });
+            // Long-press = step back one clip (owner choice): no 12-clip wait to return.
+            btnNextWall.setOnLongClickListener(v -> {
+                closeSheet();
+                host.toast(I18n.s(host, "Loading previous video clip…", "Önceki video klibi yükleniyor…"));
+                CustomMedia.skipToPreviousVideoClipOnCurrentLook(host);
+                return true;
+            });
             LinearLayout.LayoutParams nwlp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             nwlp.topMargin = dp(2);
