@@ -258,6 +258,33 @@ public class VideoPickerActivity extends Activity {
                     } finally {
                         mm.release();
                     }
+                    // Codec check: the codec must have a decoder ON THIS TV (the X1+ has no AV1,
+                    // so a valid AV1 file would still freeze on frame one forever).
+                    android.media.MediaExtractor mex = new android.media.MediaExtractor();
+                    try {
+                        mex.setDataSource(tmp.getPath());
+                        String mime = null;
+                        int w = 0, h = 0;
+                        for (int i = 0; i < mex.getTrackCount(); i++) {
+                            android.media.MediaFormat f = mex.getTrackFormat(i);
+                            String m = f.getString(android.media.MediaFormat.KEY_MIME);
+                            if (m != null && m.startsWith("video/")) {
+                                mime = m;
+                                w = f.getInteger(android.media.MediaFormat.KEY_WIDTH);
+                                h = f.getInteger(android.media.MediaFormat.KEY_HEIGHT);
+                            }
+                        }
+                        if (mime == null) throw new Exception("no video track");
+                        android.media.MediaCodecList mcl = new android.media.MediaCodecList(
+                                android.media.MediaCodecList.ALL_CODECS);
+                        android.media.MediaFormat probe = android.media.MediaFormat.createVideoFormat(mime, w, h);
+                        if (mcl.findDecoderForFormat(probe) == null) {
+                            throw new Exception("this TV cannot decode " + mime
+                                    + " — pick an H.264 clip or transcode it");
+                        }
+                    } finally {
+                        mex.release();
+                    }
                     finishDownload(c, key, tmp, state);
                     return;
                 } catch (Exception e) {
