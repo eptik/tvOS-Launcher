@@ -244,22 +244,28 @@ final class VideoCache {
         if (p.getBoolean("migrated_to_downloads", false)) return;
         File privateDir = new File(c.getFilesDir(), "videos");
         File[] files = privateDir.listFiles((d, n) -> n.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"));
-        if (files != null) {
+        boolean copied = false;
+        if (files != null && files.length > 0) {
             for (File f : files) {
                 File dst = new File(downloadDir(c), f.getName());
-                if (dst.exists() || !dst.canWrite()) continue;
+                if (dst.exists()) continue;
                 try (java.io.FileInputStream in = new java.io.FileInputStream(f);
                      java.io.FileOutputStream out = new java.io.FileOutputStream(dst)) {
                     byte[] buf = new byte[65536];
                     int n;
                     while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    copied = true;
                     Log.i(TAG, "migrated " + f.getName() + " to Downloads");
                 } catch (Exception e) {
                     Log.w(TAG, "migrate failed for " + f.getName(), e);
                 }
             }
         }
-        p.edit().putBoolean("migrated_to_downloads", true).apply();
+        // Only latch the flag when there was nothing to move or the move succeeded — a silent
+        // permission failure must not disable the migration forever.
+        if (!copied && (files == null || files.length == 0)) {
+            p.edit().putBoolean("migrated_to_downloads", true).apply();
+        }
     }
 
     /** Keeps the videos directory under its cap, oldest first; the current clip is never evicted. */
