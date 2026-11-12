@@ -5310,17 +5310,25 @@ public class MainActivity extends Activity {
             boolean w = videoWanted();
             Log.i("VideoWallpaper", "tick: wanted=" + w + " active=" + CustomMedia.isVideoWallpaperActiveOnCurrentLook(MainActivity.this) 
                     + " hasCurrent=" + VideoCache.hasCurrent(MainActivity.this) + " playback=" + getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true));
-            scheduleVideoRotation();                      // keep the timer alive regardless of state
-            if (!w) return;
+            if (!w) {
+                scheduleVideoRotation();
+                return;
+            }
             List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
             if (cached.size() < 2) return;
             String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
             String next = nextRotationClip(cached, cur);
-            if (next.equals(cur)) return;
+            if (next.equals(cur)) {
+                scheduleVideoRotation();
+                return;
+            }
             VideoCache.setCurrentKey(MainActivity.this, next);
             if (sceneHome != null && sceneHome.sceneView != null) sceneHome.sceneView.onVideoWallpaperUpdated();
+            // stopVideoWallpaper() removes this very tick — re-arm only AFTER the swap, or the
+            // chain dies at the first rotation (verified: rotations stopped after one swap).
             stopVideoWallpaper();
             syncVideoWallpaper();
+            scheduleVideoRotation();
         }
     };
 
