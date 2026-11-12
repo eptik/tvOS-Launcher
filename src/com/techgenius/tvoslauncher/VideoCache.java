@@ -143,6 +143,8 @@ final class VideoCache {
     /** Re-points the current clip without re-downloading (rotation). */
     static void setCurrentKey(Context c, String key) {
         if (key == null) return;
+        Log.i(TAG, "setCurrentKey " + (key.length() > 8 ? key.substring(0, 8) : key)
+                + " stack=" + android.util.Log.getStackTraceString(new Throwable()).split("\n")[2].trim());
         SharedPreferences p = prefs(c);
         p.edit().putString("current_key", key)
                 .putLong("ts_" + key, System.currentTimeMillis()).apply();
@@ -193,6 +195,7 @@ final class VideoCache {
         } catch (Exception ignored) {
         }
         if (key.equals(prefs(c).getString("current_key", null))) {
+            Log.w(TAG, "deleteClip cleared the CURRENT clip: " + key);
             prefs(c).edit().remove("current_key").remove("current_slug")
                     .remove("current_name").remove("current_category").apply();
         }
@@ -317,6 +320,7 @@ final class VideoCache {
                 JSONObject o = meta.getJSONObject(i);
                 String key = o.optString("key");
                 if (WallperCatalogParse.Clip.excluded(o.optString("category"))) {
+                    Log.w(TAG, "purgeExcluded removes " + key + " (" + o.optString("category") + ")");
                     videoFile(c, key).delete();
                     posterFile(c, key).delete();
                     if (key.equals(prefs(c).getString("current_key", null))) {
