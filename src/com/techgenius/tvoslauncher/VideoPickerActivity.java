@@ -228,10 +228,10 @@ public class VideoPickerActivity extends Activity {
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(20000);
                     long total = conn.getContentLength();
+                    long done = 0;
                     try (InputStream in = conn.getInputStream();
                          FileOutputStream out = new FileOutputStream(tmp)) {
                         byte[] buf = new byte[16384];
-                        long done = 0;
                         int n;
                         while ((n = in.read(buf)) > 0) {
                             out.write(buf, 0, n);
@@ -243,6 +243,21 @@ public class VideoPickerActivity extends Activity {
                         }
                     }
                     conn.disconnect();
+                    // A truncated read plays a few frames and freezes — the "never plays" class.
+                    if (total > 0 && done < total) {
+                        throw new Exception("download incomplete: " + done + "/" + total + " bytes");
+                    }
+                    android.media.MediaMetadataRetriever mm = new android.media.MediaMetadataRetriever();
+                    try {
+                        mm.setDataSource(tmp.getPath());
+                        String dur = mm.extractMetadata(
+                                android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+                        if (dur == null || Long.parseLong(dur) <= 0) {
+                            throw new Exception("file has no video track");
+                        }
+                    } finally {
+                        mm.release();
+                    }
                     finishDownload(c, key, tmp, state);
                     return;
                 } catch (Exception e) {
