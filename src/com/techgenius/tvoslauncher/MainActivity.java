@@ -5307,8 +5307,11 @@ public class MainActivity extends Activity {
 
     private final Runnable videoRotateTick = new Runnable() {
         @Override public void run() {
+            boolean w = videoWanted();
+            Log.i("VideoWallpaper", "tick: wanted=" + w + " active=" + CustomMedia.isVideoWallpaperActiveOnCurrentLook(MainActivity.this) 
+                    + " hasCurrent=" + VideoCache.hasCurrent(MainActivity.this) + " playback=" + getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("playback", true));
             scheduleVideoRotation();                      // keep the timer alive regardless of state
-            if (!videoWanted()) return;
+            if (!w) return;
             List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
             if (cached.size() < 2) return;
             String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
