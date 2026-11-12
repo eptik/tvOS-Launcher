@@ -45,7 +45,25 @@ final class VideoCache {
         return c.getSharedPreferences("video_wall", Context.MODE_PRIVATE);
     }
 
+    /** The owner's clip folder: plain MP4 files in Downloads/tvos-wallpapers, visible and manageable. */
+    static File downloadDir(Context c) {
+        File dir = new File(android.os.Environment
+                .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                "tvos-wallpapers");
+        dir.mkdirs();
+        return dir;
+    }
+
+    /** True when the key names a file that lives in the owner's Download folder. */
+    static boolean isDownloadClip(String key) {
+        return key != null && !key.matches("[0-9A-Fa-f-]{36}");
+    }
+
     static File videoFile(Context c, String key) {
+        if (isDownloadClip(key)) {
+            File dl = new File(downloadDir(c), key + ".mp4");
+            if (dl.exists()) return dl;
+        }
         File dir = new File(c.getFilesDir(), "videos");
         dir.mkdirs();
         return new File(dir, key + ".mp4");
@@ -94,16 +112,26 @@ final class VideoCache {
         return scaled;
     }
 
-    /** Cached clips that still exist on disk, oldest metadata first (rotation order). */
+    /** Cached clips that still exist on disk: the Download folder first, then legacy private clips. */
     static List<String[]> cachedClips(Context c) {
         List<String[]> out = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        File[] downloads = downloadDir(c).listFiles((d, n) -> n.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"));
+        if (downloads != null) {
+            java.util.Arrays.sort(downloads, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+            for (File f : downloads) {
+                String key = f.getName().replaceAll("(?i)\\.mp4$", "");
+                if (seen.add(key)) out.add(new String[]{key, key, key, "download"});
+            }
+        }
         try {
             JSONArray meta = new JSONArray(prefs(c).getString("meta", "[]"));
             for (int i = 0; i < meta.length(); i++) {
                 JSONObject o = meta.getJSONObject(i);
                 String key = o.optString("key");
                 if (videoFile(c, key).exists()
-                        && !WallperCatalogParse.Clip.excluded(o.optString("category"))) {
+                        && !WallperCatalogParse.Clip.excluded(o.optString("category"))
+                        && seen.add(key)) {
                     out.add(new String[]{key, o.optString("slug"), o.optString("name"), o.optString("category")});
                 }
             }
@@ -210,6 +238,30 @@ final class VideoCache {
         }
     }
 
+    /** Copies legacy private-cache clips into the Download folder once; the pool then lives there. */
+    static void migrateToDownloads(Context c) {
+        SharedPreferences p = prefs(c);
+        if (p.getBoolean("migrated_to_downloads", false)) return;
+        File privateDir = new File(c.getFilesDir(), "videos");
+        File[] files = privateDir.listFiles((d, n) -> n.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"));
+        if (files != null) {
+            for (File f : files) {
+                File dst = new File(downloadDir(c), f.getName());
+                if (dst.exists() || !dst.canWrite()) continue;
+                try (java.io.FileInputStream in = new java.io.FileInputStream(f);
+                     java.io.FileOutputStream out = new java.io.FileOutputStream(dst)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    Log.i(TAG, "migrated " + f.getName() + " to Downloads");
+                } catch (Exception e) {
+                    Log.w(TAG, "migrate failed for " + f.getName(), e);
+                }
+            }
+        }
+        p.edit().putBoolean("migrated_to_downloads", true).apply();
+    }
+
     /** Keeps the videos directory under its cap, oldest first; the current clip is never evicted. */
     static void evict(Context c) {
         try {
@@ -221,7 +273,10 @@ final class VideoCache {
             if (total <= capBytes(c)) return;
             String currentKey = prefs(c).getString("current_key", "");
             List<File> sorted = new ArrayList<>();
-            for (File f : files) if (f.getName().endsWith(".mp4")) sorted.add(f);
+            for (File f : files) {
+                if (f.getName().endsWith(".mp4") && f.getParentFile().equals(new File(c.getFilesDir(), "videos")))
+                    sorted.add(f);   // Download-folder clips belong to the owner and are never evicted
+            }
             sorted.sort((a, b) -> Long.compare(a.lastModified(), b.lastModified()));
             for (File f : sorted) {
                 if (total <= capBytes(c)) break;

@@ -443,6 +443,7 @@ public class MainActivity extends Activity {
         }
         resumed = true;
         activeInstance = this;
+        VideoCache.migrateToDownloads(this);
         NowPlaying.addListener(npListener);
         NowPlaying.refresh(getApplicationContext());
         syncVideoWallpaper();

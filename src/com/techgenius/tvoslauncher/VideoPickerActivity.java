@@ -205,10 +205,14 @@ public class VideoPickerActivity extends Activity {
             return;
         }
         // Defensive: older cached catalogues carried keys that already ended in .mp4.
-        String key = bareKey(c);
+        String cdnKey = bareKey(c);
+        // The clip lands in the owner's Download folder under its OWN NAME — a real MP4 file
+        // they can see and keep (owner request), not a UUID in a private cache.
+        String key = c.name == null || c.name.trim().isEmpty() ? cdnKey
+                : c.name.trim().replaceAll("[^A-Za-z0-9 ()_-]+", "_");
         downloadingKey = key;
         state.setText("Downloading… 0%");
-        String videoUrl = CDN + "/wallper-user-generated/" + key + ".mp4";
+        String videoUrl = CDN + "/wallper-user-generated/" + cdnKey + ".mp4";
         new Thread(() -> {
             Exception lastError = null;
             for (int attempt = 0; attempt < 3; attempt++) {   // CDN 403s are frequently transient
@@ -262,7 +266,7 @@ public class VideoPickerActivity extends Activity {
 
     private void finishDownload(WallperCatalogParse.Clip c, String key, File tmp, TextView state) throws Exception {
         {
-            File dst = VideoCache.videoFile(this, key);
+            File dst = new File(VideoCache.downloadDir(this), key + ".mp4");
             if (!tmp.renameTo(dst)) {
                 try (java.io.FileInputStream in2 = new java.io.FileInputStream(tmp);
                      FileOutputStream out2 = new FileOutputStream(dst)) {
