@@ -5275,28 +5275,40 @@ public class MainActivity extends Activity {
         videoHandler.postDelayed(videoRotateTick, delay);
     }
 
+    private java.util.List<String> videoDeck = new java.util.ArrayList<>();
+
+    private String nextRotationClip(List<String[]> cached, String cur) {
+        // Owner: "should rotate between all videos" — a shuffled deck guarantees every clip
+        // plays once before any repeats, unlike pure random which can double up.
+        videoDeck.removeIf(k -> !containsKey(cached, k) || k.equals(cur));
+        if (videoDeck.isEmpty()) {
+            videoDeck.clear();
+            for (String[] row : cached) if (!row[0].equals(cur)) videoDeck.add(row[0]);
+            java.util.Collections.shuffle(videoDeck);
+        }
+        return videoDeck.isEmpty() ? cur : videoDeck.remove(0);
+    }
+
+    private static boolean containsKey(List<String[]> cached, String key) {
+        for (String[] row : cached) if (row[0].equals(key)) return true;
+        return false;
+    }
+
     private final Runnable videoRotateTick = new Runnable() {
         @Override public void run() {
             scheduleVideoRotation();                      // keep the timer alive regardless of state
             if (!videoWanted()) return;
-            // Owner asked for variety: rotate to a RANDOM clip (never the current or the last
-            // one played) instead of walking the list in order.
             List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
             if (cached.size() < 2) return;
             String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
-            java.util.ArrayList<String> pool = new java.util.ArrayList<>();
-            for (String[] row : cached) if (!row[0].equals(cur)) pool.add(row[0]);
-            if (videoLastKey != null) pool.remove(videoLastKey);
-            if (pool.isEmpty()) pool.add(cached.get(0)[0]);
-            java.util.Collections.shuffle(pool);
-            VideoCache.setCurrentKey(MainActivity.this, pool.get(0));
-            videoLastKey = cur;
+            String next = nextRotationClip(cached, cur);
+            if (next.equals(cur)) return;
+            VideoCache.setCurrentKey(MainActivity.this, next);
             if (sceneHome != null && sceneHome.sceneView != null) sceneHome.sceneView.onVideoWallpaperUpdated();
             stopVideoWallpaper();
             syncVideoWallpaper();
         }
     };
-    private String videoLastKey;
 
     /** Now Playing popover from the SceneHome media chip; same mechanics as the weather panel. */
     void showNowPlaying() {

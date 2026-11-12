@@ -238,8 +238,14 @@ public final class ControlPanelOverlay {
         layer.setClipToPadding(false);
         layer.setOnClickListener(v -> dismiss());
 
+        // In video-wallpaper mode SKIP the screen capture entirely: the snapshot misses the
+        // TextureView's surface (it comes back black where the clip plays) and the blurred
+        // black snapshot is what read as "the control center blacks out the rest". The live
+        // video stays visible under the translucent overlay instead.
+        boolean videoActive = CustomMedia.isVideoWallpaperActiveOnCurrentLook(svcCtx)
+                && VideoCache.hasCurrent(svcCtx);
         final android.graphics.Bitmap[] liveBlurHolder = new android.graphics.Bitmap[]{
-                getOverlayGlassBitmap(svcCtx, screenW, screenH)
+                videoActive ? null : getOverlayGlassBitmap(svcCtx, screenW, screenH)
         };
         // Video is playing underneath (or will be): a static screenshot would freeze it, and DRM /
         // hardware-overlay video captures as pure black. Keep the live video visible instead.
