@@ -5154,7 +5154,9 @@ public class MainActivity extends Activity {
     void syncVideoWallpaper() {
         // Self-heal: the current clip can vanish under us (picker delete, cache eviction) while
         // the cache still holds others. Never sit clip-less — point at a random survivor.
-        if (videoWanted() && !VideoCache.hasCurrent(this)) {
+        // NOTE: videoWanted() already requires hasCurrent, so this check must NOT use it —
+        // the first version did and the heal could never fire.
+        if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(this) && !VideoCache.hasCurrent(this)) {
             List<String[]> alive = VideoCache.cachedClips(this);
             if (!alive.isEmpty()) {
                 String pick = alive.get(new java.util.Random().nextInt(alive.size()))[0];
