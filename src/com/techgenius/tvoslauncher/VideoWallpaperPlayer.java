@@ -61,6 +61,14 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
                 if (listener != null) listener.onError(new Exception("decoder error " + what));
                 return true;
             });
+            // Defense in depth: some decoders complete instead of looping; the wallpaper must
+            // never sit frozen on the last frame until the watchdog notices.
+            player.setOnCompletionListener(mp -> {
+                if (loop) {
+                    mp.seekTo(0);
+                    mp.start();
+                }
+            });
             player.prepare();
             player.start();
             android.util.Log.i("VideoWallpaper", "MediaPlayer started");
