@@ -216,6 +216,15 @@ final class VideoCache {
                 String key = f.getName().replace(".mp4", "");
                 f.delete();
                 posterFile(c, key).delete();
+                try {
+                    JSONArray meta = new JSONArray(prefs(c).getString("meta", "[]"));
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < meta.length(); i++) {
+                        if (!key.equals(meta.getJSONObject(i).optString("key"))) kept.put(meta.getJSONObject(i));
+                    }
+                    prefs(c).edit().putString("meta", kept.toString()).apply();
+                } catch (Exception ignored) {
+                }
                 total -= len;
                 Log.i(TAG, "evicted " + key);
             }

@@ -5152,6 +5152,16 @@ public class MainActivity extends Activity {
     }
 
     void syncVideoWallpaper() {
+        // Self-heal: the current clip can vanish under us (picker delete, cache eviction) while
+        // the cache still holds others. Never sit clip-less — point at a random survivor.
+        if (videoWanted() && !VideoCache.hasCurrent(this)) {
+            List<String[]> alive = VideoCache.cachedClips(this);
+            if (!alive.isEmpty()) {
+                String pick = alive.get(new java.util.Random().nextInt(alive.size()))[0];
+                Log.i("VideoWallpaper", "current clip missing — self-heal to " + pick);
+                VideoCache.setCurrentKey(this, pick);
+            }
+        }
         boolean wanted = videoWanted();
         boolean surfaceOk = videoTexture != null && videoTexture.isAvailable();
         if (wanted && surfaceOk) {
@@ -5267,11 +5277,24 @@ public class MainActivity extends Activity {
         @Override public void run() {
             scheduleVideoRotation();                      // keep the timer alive regardless of state
             if (!videoWanted()) return;
-            // One owner for the swap logic (pick next, stop the player, refresh scene + glass,
-            // restart): the wheel button and this timer must behave identically.
-            CustomMedia.skipToNextVideoClipOnCurrentLook(MainActivity.this);
+            // Owner asked for variety: rotate to a RANDOM clip (never the current or the last
+            // one played) instead of walking the list in order.
+            List<String[]> cached = VideoCache.cachedClips(MainActivity.this);
+            if (cached.size() < 2) return;
+            String cur = VideoCache.prefs(MainActivity.this).getString("current_key", "");
+            java.util.ArrayList<String> pool = new java.util.ArrayList<>();
+            for (String[] row : cached) if (!row[0].equals(cur)) pool.add(row[0]);
+            if (videoLastKey != null) pool.remove(videoLastKey);
+            if (pool.isEmpty()) pool.add(cached.get(0)[0]);
+            java.util.Collections.shuffle(pool);
+            VideoCache.setCurrentKey(MainActivity.this, pool.get(0));
+            videoLastKey = cur;
+            if (sceneHome != null && sceneHome.sceneView != null) sceneHome.sceneView.onVideoWallpaperUpdated();
+            stopVideoWallpaper();
+            syncVideoWallpaper();
         }
     };
+    private String videoLastKey;
 
     /** Now Playing popover from the SceneHome media chip; same mechanics as the weather panel. */
     void showNowPlaying() {

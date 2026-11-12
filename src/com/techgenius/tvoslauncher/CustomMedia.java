@@ -1777,7 +1777,18 @@ public final class CustomMedia {
         String cur = prefs(c).getString("current_key", "");
         int idx = -1;
         for (int i = 0; i < cached.size(); i++) if (cached.get(i)[0].equals(cur)) idx = i;
-        VideoCache.setCurrentKey(c, cached.get((idx + offset + cached.size()) % cached.size())[0]);
+        String next;
+        if (idx < 0) {
+            // Current clip is gone (deleted/evicted): land on a RANDOM survivor, never the
+            // same first entry every time — that read as "next wallpaper does nothing".
+            next = cached.get(new java.util.Random().nextInt(cached.size()))[0];
+        } else {
+            next = cached.get((idx + offset + cached.size()) % cached.size())[0];
+        }
+        android.util.Log.i("VideoWallpaper", "skip: idx=" + idx + " of=" + cached.size()
+                + " from=" + (cur.length() > 8 ? cur.substring(0, 8) : cur)
+                + " to=" + (next.length() > 8 ? next.substring(0, 8) : next));
+        VideoCache.setCurrentKey(c, next);
         // The overlay passes an AccessibilityService as the context, so resolve the activity
         // through its live instance; the scene cache and the running player must both refresh.
         MainActivity act = MainActivity.activeInstance;
