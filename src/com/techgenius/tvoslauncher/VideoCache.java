@@ -22,7 +22,21 @@ import java.util.List;
 final class VideoCache {
 
     private static final String TAG = "VideoCache";
-    private static final long CAP_BYTES = 500L * 1024 * 1024;
+    // The old 500 MB cap evicted the owner's library while they browsed the picker (4K clips
+    // are 30-110 MB each). Size the cap from real free space instead: half of what is free,
+    // bounded 1-3 GB, re-read on every eviction.
+    private static final long CAP_MIN = 1024L * 1024 * 1024;
+    private static final long CAP_MAX = 3L * 1024 * 1024 * 1024;
+
+    private static long capBytes(Context c) {
+        try {
+            long free = new File(c.getFilesDir(), "videos").getParentFile().getUsableSpace();
+            long cap = free / 2;
+            return Math.max(CAP_MIN, Math.min(CAP_MAX, cap));
+        } catch (Exception e) {
+            return CAP_MIN;
+        }
+    }
 
     private VideoCache() {
     }
@@ -204,13 +218,13 @@ final class VideoCache {
             if (files == null) return;
             long total = 0;
             for (File f : files) total += f.length();
-            if (total <= CAP_BYTES) return;
+            if (total <= capBytes(c)) return;
             String currentKey = prefs(c).getString("current_key", "");
             List<File> sorted = new ArrayList<>();
             for (File f : files) if (f.getName().endsWith(".mp4")) sorted.add(f);
             sorted.sort((a, b) -> Long.compare(a.lastModified(), b.lastModified()));
             for (File f : sorted) {
-                if (total <= CAP_BYTES) break;
+                if (total <= capBytes(c)) break;
                 if (f.getName().equals(currentKey + ".mp4")) continue;
                 long len = f.length();
                 String key = f.getName().replace(".mp4", "");

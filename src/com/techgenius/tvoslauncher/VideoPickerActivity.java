@@ -90,15 +90,38 @@ public class VideoPickerActivity extends Activity {
         return root;
     }
 
+    private int rowsShown = SHOW_ROWS;
+
     private void populate() {
         list.removeAllViews();
         int shown = 0;
         for (WallperCatalogParse.Clip c : clips) {
-            if (shown >= SHOW_ROWS) break;
+            if (shown >= rowsShown) break;
             list.addView(row(c, shown++));
         }
-        status.setText(clips.size() > SHOW_ROWS
-                ? "Top " + SHOW_ROWS + " of " + clips.size() + " — pick one to download"
+        if (clips.size() > rowsShown) {
+            // Progressive disclosure instead of a hard 60-row cap: the catalog holds 800+ clips,
+            // the owner asked why only one page was reachable.
+            TextView more = new TextView(this);
+            more.setText(I18n.s(this, "Show more", "Daha fazla göster")
+                    + "  (+" + Math.min(SHOW_ROWS, clips.size() - rowsShown) + ")");
+            more.setTextSize(15);
+            more.setTextColor(0xFFF4F4F6);
+            more.setGravity(Gravity.CENTER);
+            more.setPadding(dp(8), dp(10), dp(8), dp(10));
+            more.setBackground(new MainActivity.LiquidGlass(
+                    dp(14), 0x2210161C, null, 0, 0, 1f).adaptive());
+            more.setOnClickListener(v -> {
+                rowsShown += SHOW_ROWS;
+                populate();
+            });
+            more.setOnFocusChangeListener((v, f) -> more.setTextColor(f ? 0xFF111114 : 0xFFF4F4F6));
+            more.setFocusable(true);
+            more.setFocusableInTouchMode(true);
+            list.addView(more);
+        }
+        status.setText(clips.size() > rowsShown
+                ? "Top " + rowsShown + " of " + clips.size() + " — pick one to download"
                 : clips.size() + " clips");
     }
 
@@ -187,60 +210,79 @@ public class VideoPickerActivity extends Activity {
         state.setText("Downloading… 0%");
         String videoUrl = CDN + "/wallper-user-generated/" + key + ".mp4";
         new Thread(() -> {
-            try {
-                // FileOutputStream never creates parents: without this the write fails with
-                // FileNotFoundException (No such file or directory) — the failure the owner hit.
-                new File(getFilesDir(), "videos").mkdirs();
-                File tmp = new File(getCacheDir(), "clip.part");
-                HttpURLConnection conn = (HttpURLConnection) new URL(videoUrl).openConnection();
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(20000);
-                long total = conn.getContentLength();
-                try (InputStream in = conn.getInputStream();
-                     FileOutputStream out = new FileOutputStream(tmp)) {
-                    byte[] buf = new byte[16384];
-                    long done = 0;
-                    int n;
-                    while ((n = in.read(buf)) > 0) {
-                        out.write(buf, 0, n);
-                        done += n;
-                        if (total > 0) {
-                            int pct = (int) (done * 100 / total);
-                            runOnUiThread(() -> state.setText("Downloading… " + pct + "%"));
+            Exception lastError = null;
+            for (int attempt = 0; attempt < 3; attempt++) {   // CDN 403s are frequently transient
+                if (attempt > 0) {
+                    try { Thread.sleep(1500L * attempt); } catch (InterruptedException ignored) { }
+                }
+                try {
+                    // FileOutputStream never creates parents: without this the write fails with
+                    // FileNotFoundException (No such file or directory) — the failure the owner hit.
+                    new File(getFilesDir(), "videos").mkdirs();
+                    File tmp = new File(getCacheDir(), "clip.part");
+                    HttpURLConnection conn = (HttpURLConnection) new URL(videoUrl).openConnection();
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(20000);
+                    long total = conn.getContentLength();
+                    try (InputStream in = conn.getInputStream();
+                         FileOutputStream out = new FileOutputStream(tmp)) {
+                        byte[] buf = new byte[16384];
+                        long done = 0;
+                        int n;
+                        while ((n = in.read(buf)) > 0) {
+                            out.write(buf, 0, n);
+                            done += n;
+                            if (total > 0) {
+                                int pct = (int) (done * 100 / total);
+                                runOnUiThread(() -> state.setText("Downloading… " + pct + "%"));
+                            }
                         }
                     }
+                    conn.disconnect();
+                    finishDownload(c, key, tmp, state);
+                    return;
+                } catch (Exception e) {
+                    lastError = e;
+                    Log.w(TAG, "download attempt " + (attempt + 1) + " failed", e);
+                    new File(getCacheDir(), "clip.part").delete();
                 }
-                conn.disconnect();
-                File dst = VideoCache.videoFile(this, key);
-                if (!tmp.renameTo(dst)) {
-                    try (java.io.FileInputStream in2 = new java.io.FileInputStream(tmp);
-                         FileOutputStream out2 = new FileOutputStream(dst)) {
-                        byte[] buf = new byte[16384];
-                        int n;
-                        while ((n = in2.read(buf)) > 0) out2.write(buf, 0, n);
-                    }
-                    tmp.delete();
-                }
-                copyPoster(c, key, c.previewUrl);
-                VideoCache.setCurrent(this, key, c.slug, c.name, c.category);
-                VideoCache.evict(this);
-                runOnUiThread(() -> {
-                    state.setText("✓ current");
-                    downloadingKey = null;
-                    Toast.makeText(this, "Applied — back to Home to see it", Toast.LENGTH_LONG).show();
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "download failed", e);
-                new File(getCacheDir(), "clip.part").delete();
-                String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                String shortMsg = msg.length() > 60 ? msg.substring(0, 60) + "…" : msg;
-                runOnUiThread(() -> {
-                    state.setText("Failed: " + shortMsg);
-                    downloadingKey = null;
-                });
             }
+            String msg = lastError == null || lastError.getMessage() == null
+                    ? lastError == null ? "" : lastError.getClass().getSimpleName()
+                    : lastError.getMessage();
+            String shortMsg = msg.length() > 60 ? msg.substring(0, 60) + "…" : msg;
+            String httpHint = lastError != null && lastError instanceof java.io.FileNotFoundException
+                    ? " (clip not on CDN)" : "";
+            runOnUiThread(() -> {
+                state.setText("Failed: " + shortMsg + httpHint);
+                downloadingKey = null;
+            });
         }, "clip-download").start();
     }
+
+    private void finishDownload(WallperCatalogParse.Clip c, String key, File tmp, TextView state) throws Exception {
+        {
+            File dst = VideoCache.videoFile(this, key);
+            if (!tmp.renameTo(dst)) {
+                try (java.io.FileInputStream in2 = new java.io.FileInputStream(tmp);
+                     FileOutputStream out2 = new FileOutputStream(dst)) {
+                    byte[] buf = new byte[16384];
+                    int n;
+                    while ((n = in2.read(buf)) > 0) out2.write(buf, 0, n);
+                }
+                tmp.delete();
+            }
+            copyPoster(c, key, c.previewUrl);
+            VideoCache.setCurrent(this, key, c.slug, c.name, c.category);
+            VideoCache.evict(this);
+            runOnUiThread(() -> {
+                state.setText("✓ current");
+                downloadingKey = null;
+                Toast.makeText(this, "Applied — back to Home to see it", Toast.LENGTH_LONG).show();
+            });
+        }
+    }
+
 
     private void copyPoster(WallperCatalogParse.Clip c, String key, String previewUrl) {
         try {
