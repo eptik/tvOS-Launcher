@@ -5181,7 +5181,16 @@ public class MainActivity extends Activity {
         if (videoPlayer != null) {
             videoPlayer.stop();
             videoPlayer = null;
+            // The old decoder releases the SHARED SurfaceTexture asynchronously; creating the
+            // new player on it the same instant froze the new clip on frame one. Give the
+            // release a beat, then start.
+            handler.postDelayed(this::startVideoWallpaperNow, 250L);
+            return;
         }
+        startVideoWallpaperNow();
+    }
+
+    private void startVideoWallpaperNow() {
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
