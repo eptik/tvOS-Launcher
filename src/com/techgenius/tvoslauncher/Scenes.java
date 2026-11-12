@@ -1204,12 +1204,31 @@ public final class Scenes {
             return ls != null ? ls.bg : null;
         }
 
+        private long lastNotifiedPosterKey;
+
         private void notifySceneBackdrop() {
-            if (listener != null) {
-                LoadedScene ls = ensureLoaded(currentId);
-                if (ls != null && ls.bg != null && ls.bg != lastNotifiedBg) {
+            if (listener == null) return;
+            LoadedScene ls = ensureLoaded(currentId);
+            if (ls == null) return;
+            if (ls.bg != null) {
+                if (ls.bg != lastNotifiedBg) {
                     lastNotifiedBg = ls.bg;
                     listener.onSceneChanged(ls.bg);
+                }
+                return;
+            }
+            // Video mode: the backdrop is the live surface, but the control center, music and
+            // weather chips still glass-sample a backdrop — feed them THIS clip's poster, once
+            // per clip, or they keep the previous wallpaper's colors.
+            if (videoBackdropActive) {
+                long key = VideoCache.currentKeyHash(getContext());
+                if (key != 0 && key != lastNotifiedPosterKey) {
+                    Bitmap poster = VideoCache.currentPoster(getContext(), 480, 270);
+                    if (poster != null) {
+                        lastNotifiedPosterKey = key;
+                        listener.onSceneChanged(poster);
+                        poster.recycle();
+                    }
                 }
             }
         }
