@@ -1227,7 +1227,8 @@ public final class Scenes {
                     if (poster != null) {
                         lastNotifiedPosterKey = key;
                         listener.onSceneChanged(poster);
-                        poster.recycle();
+                        // NOT recycled: the host keeps a derived glass bitmap and the chips may
+                        // sample the source asynchronously — recycling here crashed the process.
                     }
                 }
             }

@@ -82,6 +82,7 @@ public final class Ui {
 
     /** Liquid Glass backdrop: blurred image with boosted saturation and a slight lift, baked in a single bitmap. */
     static android.graphics.Bitmap glassBackdrop(android.graphics.Bitmap src, int w, int h) {
+        if (src == null || src.isRecycled()) return null;   // a recycled sample must never kill the process
         if (src == null || src.isRecycled()) return null;
         android.graphics.Bitmap out = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
         android.graphics.ColorMatrix cm = new android.graphics.ColorMatrix();

@@ -200,7 +200,8 @@ public class MainActivity extends Activity {
     String wallStyle;
     /** What Liquid Glass samples: a blurred copy of the wallpaper or of the carousel artwork. */
     Bitmap wallBlur, heroBlur, glassBg;
-    final LiquidGlass.Backdrop glassSource = () -> glassBg;
+    final LiquidGlass.Backdrop glassSource = () ->
+            (glassBg != null && !glassBg.isRecycled()) ? glassBg : null;
     View dockRow;
     boolean returningFromSettings;
     final java.util.concurrent.ExecutorService io = java.util.concurrent.Executors.newSingleThreadExecutor();
