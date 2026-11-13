@@ -635,12 +635,16 @@ public class MainActivity extends Activity {
         videoTexture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
                     int w, int h) {
+                if (videoTextureSwapping) return;   // our own fresh-texture swap: start() handles it
                 st.setDefaultBufferSize(screenW, screenH);
                 syncVideoWallpaper();
             }
             @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
                     int w, int h) { }
             @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
+                // During our own texture swap the framework tears the old texture down; that is
+                // housekeeping, not a reason to stop the player about to use the new one.
+                if (videoTextureSwapping) return true;
                 stopVideoWallpaper();
                 return true;
             }
@@ -5199,12 +5203,15 @@ public class MainActivity extends Activity {
         // A FRESH SurfaceTexture per player: reusing the previous player's texture across
         // stop/start left decoder-owned surface state behind, and prepare threw or the new
         // clip froze on frame one. The view adopts the new texture and renders it as usual.
+        videoTextureSwapping = true;
         try {
             android.graphics.SurfaceTexture fresh = new android.graphics.SurfaceTexture(0);
             fresh.setDefaultBufferSize(screenW, screenH);
             videoTexture.setSurfaceTexture(fresh);
         } catch (Throwable t) {
             Log.w("VideoWallpaper", "fresh texture failed", t);
+        } finally {
+            videoTextureSwapping = false;
         }
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
@@ -5275,6 +5282,7 @@ public class MainActivity extends Activity {
     };
 
     void stopVideoWallpaper() {   // package-private: CustomMedia.skipToNext needs it
+        Log.i("VideoWallpaper", "stop from " + new Throwable().getStackTrace()[1].toString());
         videoHandler.removeCallbacks(videoStallTick);
         videoHandler.removeCallbacks(videoRotateTick);
         if (videoPlayer != null) {
@@ -5302,6 +5310,10 @@ public class MainActivity extends Activity {
     }
 
     private java.util.List<String> videoDeck = new java.util.ArrayList<>();
+    // True while startVideoWallpaperNow replaces the SurfaceTexture: the framework fires the
+    // destroyed/available callbacks synchronously inside setSurfaceTexture and they must not
+    // stop the player or re-enter sync — that loop restart-stormed the launcher every second.
+    private boolean videoTextureSwapping;
 
     private String nextRotationClip(List<String[]> cached, String cur) {
         // Owner: "should rotate between all videos" — a shuffled deck guarantees every clip

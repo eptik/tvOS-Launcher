@@ -73,6 +73,7 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             // it as a broken file, not a wallpaper.
             final long[] lastCompletion = {0L};
             player.setOnCompletionListener(mp -> {
+                android.util.Log.i("VideoWallpaper", "completed at " + mp.getCurrentPosition() + " ms");
                 if (!loop) return;
                 long now = android.os.SystemClock.elapsedRealtime();
                 if (lastCompletion[0] > 0 && now - lastCompletion[0] < 3000L) {
