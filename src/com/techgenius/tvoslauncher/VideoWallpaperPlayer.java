@@ -15,7 +15,7 @@ interface VideoWallpaperPlayer {
 
     void setListener(Listener listener);
 
-    void start(SurfaceTexture texture, String path, boolean loop);
+    void start(android.view.Surface surface, String path, boolean loop);
 
     /** Playback position in ms, or -1 when unknown — the stall watchdog reads this. */
     int positionMs();
@@ -121,10 +121,8 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             }
             player = null;
         }
-        if (surface != null) {
-            surface.release();
-            surface = null;
-        }
+        // The SurfaceView's surface is owned by the compositor — never release it here.
+        surface = null;
     }
 
     @Override
