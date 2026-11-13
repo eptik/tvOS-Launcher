@@ -5172,7 +5172,7 @@ public class MainActivity extends Activity {
                     int w, int h) {
                 st.setDefaultBufferSize(screenW, screenH);
                 // isAvailable() flips after the next layout pass — post, don't call inline.
-                handler.post(this::syncVideoWallpaper);
+                handler.post(() -> syncVideoWallpaper());
             }
             @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
                     int w, int h) { }
