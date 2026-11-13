@@ -62,12 +62,22 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
                 return true;
             });
             // Defense in depth: some decoders complete instead of looping; the wallpaper must
-            // never sit frozen on the last frame until the watchdog notices.
+            // never sit frozen on the last frame until the watchdog notices. And a clip that
+            // completes again within 3 s is a truncated head fragment looping itself — treat
+            // it as a broken file, not a wallpaper.
+            final long[] lastCompletion = {0L};
             player.setOnCompletionListener(mp -> {
-                if (loop) {
-                    mp.seekTo(0);
-                    mp.start();
+                if (!loop) return;
+                long now = android.os.SystemClock.elapsedRealtime();
+                if (lastCompletion[0] > 0 && now - lastCompletion[0] < 3000L) {
+                    if (listener != null) {
+                        listener.onError(new Exception("clip loops under 3s — truncated file"));
+                    }
+                    return;
                 }
+                lastCompletion[0] = now;
+                mp.seekTo(0);
+                mp.start();
             });
             player.prepare();
             player.start();
