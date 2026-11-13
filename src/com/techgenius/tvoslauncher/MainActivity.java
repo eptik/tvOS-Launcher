@@ -5220,6 +5220,8 @@ public class MainActivity extends Activity {
     }
 
     /** The player start, driven by the fresh surface's available callback. */
+    private android.graphics.SurfaceTexture pendingTexture;
+
     private void startVideoWallpaperWith(android.graphics.SurfaceTexture st) {
         Log.i("VideoWallpaper", "swap " + swapT0 + ": surface available, +"
                 + (android.os.SystemClock.elapsedRealtime() - swapT0) + " ms");
