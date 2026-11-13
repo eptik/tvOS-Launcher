@@ -5206,8 +5206,11 @@ public class MainActivity extends Activity {
 
     private void startVideoWallpaperNow() {
         Log.i("VideoWallpaper", "start from " + new Throwable().getStackTrace()[1].toString());
-        if (videoTexture == null || !videoTexture.isAvailable()) {
-            Log.i("VideoWallpaper", "start skipped — surface not available, waiting for it");
+        // Gate on the SurfaceTexture OBJECT, not isAvailable(): a freshly rebuilt TextureView
+        // reports unavailable until its first layout, but the texture callback below fires
+        // right after and drives the start.
+        if (videoTexture == null || videoTexture.getSurfaceTexture() == null) {
+            Log.i("VideoWallpaper", "start skipped — no surface texture yet, waiting for it");
             return;
         }
         File f = VideoCache.current(this);
