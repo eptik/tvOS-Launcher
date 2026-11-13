@@ -5158,10 +5158,11 @@ public class MainActivity extends Activity {
             }
         }
         boolean wanted = videoWanted();
-        boolean surfaceOk = videoTexture != null && videoTexture.isAvailable();
-        if (wanted && surfaceOk) {
+        if (wanted && videoPlayer == null) {
+            // Rebuilding the TextureView re-enters through the surface-available callback,
+            // which starts the player with the brand-new surface.
             startVideoWallpaper();
-        } else {
+        } else if (!wanted) {
             stopVideoWallpaper();
         }
     }
@@ -5171,8 +5172,7 @@ public class MainActivity extends Activity {
             @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
                     int w, int h) {
                 st.setDefaultBufferSize(screenW, screenH);
-                // isAvailable() flips after the next layout pass — post, don't call inline.
-                handler.post(() -> syncVideoWallpaper());
+                startVideoWallpaperWith(st);
             }
             @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
                     int w, int h) { }
@@ -5185,14 +5185,9 @@ public class MainActivity extends Activity {
     }
 
     private void startVideoWallpaper() {
-        // Skip and rotation replace the running clip in place: stopping here (instead of guarding)
-        // keeps the still hidden through the swap, so no poster flash between clips.
-        if (videoPlayer != null) {
-            videoPlayer.stop();
-            videoPlayer = null;
-        }
-        // Rebuild the TextureView per clip: a brand-new view, texture and surface kill every
-        // decoder-surface reuse bug — frame-one freezes and prepare IllegalStateExceptions.
+        // A clip swap: stop the player, then rebuild the TextureView — the fresh surface's
+        // available callback drives the new player, so no decoder-surface state is ever reused.
+        stopVideoWallpaper();
         if (videoTexture != null) {
             videoTexture.setSurfaceTextureListener(null);
             root.removeView(videoTexture);
@@ -5201,16 +5196,22 @@ public class MainActivity extends Activity {
         videoTexture.setOpaque(false);
         videoTexture.setSurfaceTextureListener(videoTextureListener());
         root.addView(videoTexture, 0, match());
-        startVideoWallpaperNow();
     }
 
-    private void startVideoWallpaperNow() {
-        Log.i("VideoWallpaper", "start from " + new Throwable().getStackTrace()[1].toString());
-        // Gate on the SurfaceTexture OBJECT, not isAvailable(): a freshly rebuilt TextureView
-        // reports unavailable until its first layout, but the texture callback below fires
-        // right after and drives the start.
-        if (videoTexture == null || videoTexture.getSurfaceTexture() == null) {
-            Log.i("VideoWallpaper", "start skipped — no surface texture yet, waiting for it");
+    /** The player start, driven by the fresh surface's available callback. */
+    private void startVideoWallpaperWith(android.graphics.SurfaceTexture st) {
+        // Self-heal: the current clip can vanish under us (picker delete, cache eviction) while
+        // the cache still holds others. Never sit clip-less — point at a random survivor.
+        if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(this) && !VideoCache.hasCurrent(this)) {
+            List<String[]> alive = VideoCache.cachedClips(this);
+            if (!alive.isEmpty()) {
+                String pick = alive.get(new java.util.Random().nextInt(alive.size()))[0];
+                Log.i("VideoWallpaper", "current clip missing — self-heal to " + pick);
+                VideoCache.setCurrentKey(this, pick);
+            }
+        }
+        if (!videoWanted()) {
+            Log.i("VideoWallpaper", "start skipped — video not wanted");
             return;
         }
         File f = VideoCache.current(this);
