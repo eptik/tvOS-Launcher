@@ -5192,6 +5192,13 @@ public class MainActivity extends Activity {
     }
 
     private void startVideoWallpaperNow() {
+        // The delayed swap can land after the surface died with the previous player; starting
+        // against it throws IllegalStateException and leaves the poster up. The texture
+        // listener re-syncs the moment the surface returns.
+        if (videoTexture == null || !videoTexture.isAvailable()) {
+            Log.i("VideoWallpaper", "start skipped — surface not available, waiting for it");
+            return;
+        }
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
         boolean loop = getSharedPreferences("video_wall", MODE_PRIVATE).getBoolean("loop", true);
