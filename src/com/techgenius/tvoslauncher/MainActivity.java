@@ -5339,7 +5339,7 @@ public class MainActivity extends Activity {
     private final android.os.Handler videoHandler = new android.os.Handler(
             android.os.Looper.getMainLooper());
 
-    private void scheduleVideoRotation() {
+    void scheduleVideoRotation() {
         String rotate = getSharedPreferences("video_wall", MODE_PRIVATE).getString("rotate", "off");
         videoHandler.removeCallbacks(videoRotateTick);
         if (!rotate.equals("90") && !rotate.equals("300")) return;
