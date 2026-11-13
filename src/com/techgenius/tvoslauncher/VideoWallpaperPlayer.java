@@ -37,8 +37,11 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
         this.listener = listener;
     }
 
+    private boolean stopping;
+
     @Override
     public void start(SurfaceTexture texture, String path, boolean loop) {
+        stopping = false;   // the next player owns error reporting again
         stop();
         try {
             // Buffer size is already set to the display size by MainActivity's
@@ -58,6 +61,9 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
                 return false;
             });
             player.setOnErrorListener((mp, what, extra) -> {
+                // stop() makes some decoders emit onError(1) asynchronously — during teardown
+                // that is teardown noise, not a playback failure.
+                if (stopping) return true;
                 if (listener != null) listener.onError(new Exception("decoder error " + what));
                 return true;
             });
@@ -98,6 +104,8 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     }
 
     public void stop() {
+        // Stays true until the next start(): the error event lands after stop() returns.
+        stopping = true;
         if (player != null) {
             // stop() throws in the Preparing state; release() alone is valid from any state.
             try {
