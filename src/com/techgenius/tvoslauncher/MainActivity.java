@@ -50,7 +50,9 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.TextureView;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -221,7 +223,8 @@ public class MainActivity extends Activity {
     int moveIndex = -1;
     boolean folderMode;
     boolean resumed;
-    private TextureView videoTexture;
+    private SurfaceView videoSurface;
+    private SurfaceHolder videoHolder;
     private VideoWallpaperPlayer videoPlayer;
     private boolean videoPlaying;
     private ImageView classicMediaChip;
@@ -632,10 +635,22 @@ public class MainActivity extends Activity {
         // chip and panel composites above it, and the scene's own wallpaper layer is painted
         // transparent in video mode (Scenes.ensureLoaded video_wall branch) to let it through.
         // Decode is capped at the panel size so the GPU never ships 4K textures per frame.
-        videoTexture = new TextureView(this);
-        videoTexture.setOpaque(false);
-        videoTexture.setSurfaceTextureListener(videoTextureListener());
-        root.addView(videoTexture, 0, match());
+        // SurfaceView: the decoder writes straight into the display compositor — no
+        // TextureView frame-consumption to stall, which is what froze the wallpaper mid-play.
+        videoSurface = new SurfaceView(this);
+        videoHolder = videoSurface.getHolder();
+        videoHolder.addCallback(new android.view.SurfaceHolder.Callback() {
+            @Override public void surfaceCreated(android.view.SurfaceHolder holder) {
+                Log.i("VideoWallpaper", "surface created");
+                handler.post(() -> startVideoWallpaperWith(holder.getSurface()));
+            }
+            @Override public void surfaceChanged(android.view.SurfaceHolder holder,
+                    int format, int w, int h) { }
+            @Override public void surfaceDestroyed(android.view.SurfaceHolder holder) {
+                stopVideoWallpaper();
+            }
+        });
+        root.addView(videoSurface, 0, match());
 
         root.addView(wallView, match());
 
@@ -5167,62 +5182,25 @@ public class MainActivity extends Activity {
         }
     }
 
-    private TextureView.SurfaceTextureListener videoTextureListener() {
-        return new TextureView.SurfaceTextureListener() {
-            @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
-                    int w, int h) {
-                st.setDefaultBufferSize(screenW, screenH);
-                startVideoWallpaperWith(st);
-            }
-            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
-                    int w, int h) { }
-            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
-                stopVideoWallpaper();
-                return true;
-            }
-            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) { }
-        };
-    }
-
-    private ImageView swapStill;   // the outgoing clip's last frame, held across the swap
     private long swapT0;           // elapsedRealtime at swap begin — the tap->frame timeline
 
     private void startVideoWallpaper() {
         swapT0 = android.os.SystemClock.elapsedRealtime();
         Log.i("VideoWallpaper", "swap " + swapT0 + ": begin");
-        // A clip swap: HOLD the outgoing frame (pixel-identical transition), stop the player,
-        // rebuild the TextureView — the held frame stays until the new clip's first frame.
-        boolean replacing = videoPlayer != null;
-        Bitmap lastFrame = null;
-        if (replacing && videoTexture != null && videoTexture.isAvailable()) {
-            try { lastFrame = videoTexture.getBitmap(); } catch (Throwable ignored) { }
+        // A clip swap keeps the SAME compositor-owned surface: the new player attaches to it
+        // and the punch-through shows the new clip with no view rebuild and no frame stall.
+        if (videoSurface == null || videoHolder == null
+                || videoHolder.getSurface() == null || !videoHolder.getSurface().isValid()) {
+            Log.i("VideoWallpaper", "swap skipped — surface not ready");
+            return;
         }
-        stopVideoWallpaper();
-        if (videoTexture != null) {
-            videoTexture.setSurfaceTextureListener(null);
-            root.removeView(videoTexture);
-        }
-        videoTexture = new TextureView(this);
-        videoTexture.setOpaque(false);
-        videoTexture.setSurfaceTextureListener(videoTextureListener());
-        root.addView(videoTexture, 0, match());
-        if (lastFrame != null) {
-            if (swapStill == null) {
-                swapStill = new ImageView(this);
-                swapStill.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            }
-            swapStill.setImageBitmap(lastFrame);
-            swapStill.setVisibility(View.VISIBLE);
-            if (swapStill.getParent() == null) {
-                root.addView(swapStill, 1, match());   // above the video, below the scene chrome
-            }
-        }
+        startVideoWallpaperWith(videoHolder.getSurface());
     }
 
     /** The player start, driven by the fresh surface's available callback. */
-    private android.graphics.SurfaceTexture pendingTexture;
+    private android.view.Surface pendingSurface;
 
-    private void startVideoWallpaperWith(android.graphics.SurfaceTexture st) {
+    private void startVideoWallpaperWith(android.view.Surface surface) {
         Log.i("VideoWallpaper", "swap " + swapT0 + ": surface available, +"
                 + (android.os.SystemClock.elapsedRealtime() - swapT0) + " ms");
         // Self-heal: the current clip can vanish under us (picker delete, cache eviction) while
@@ -5246,7 +5224,7 @@ public class MainActivity extends Activity {
         videoFrozenTicks = 0;
         videoHandler.removeCallbacks(videoStallTick);
         videoHandler.postDelayed(videoStallTick, 3000L);
-        pendingTexture = st;
+        pendingSurface = surface;
         videoPlayer = new MediaPlayerWallpaper();
         final VideoWallpaperPlayer me = videoPlayer;
         videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
@@ -5258,7 +5236,6 @@ public class MainActivity extends Activity {
                     Log.i("VideoWallpaper", "swap " + swapT0 + ": first frame, +"
                             + (android.os.SystemClock.elapsedRealtime() - swapT0) + " ms");
                     wallView.setVisibility(View.INVISIBLE);
-                    if (swapStill != null) swapStill.setVisibility(View.GONE);
                     if (sceneHome != null && sceneHome.sceneView != null) {
                         sceneHome.sceneView.setVideoBackdropActive(true);
                     }
@@ -5273,7 +5250,9 @@ public class MainActivity extends Activity {
                 });
             }
         });
-        videoPlayer.start(videoTexture.getSurfaceTexture(), f.getPath(), loop);
+        android.view.Surface useSurface = pendingSurface != null ? pendingSurface
+                : videoHolder.getSurface();
+        videoPlayer.start(useSurface, f.getPath(), loop);
     }
 
     // A decoder can "play" while freezing on one frame (e.g. a 4K clip on a device that cannot
@@ -5329,10 +5308,9 @@ public class MainActivity extends Activity {
             videoPlayer = null;
         }
         videoPlaying = false;
-        boolean swapHeld = swapStill != null && swapStill.getVisibility() == View.VISIBLE;
-        if (wallView != null && !swapHeld) wallView.setVisibility(View.VISIBLE);
+        if (wallView != null) wallView.setVisibility(View.VISIBLE);
         if (sceneHome != null && sceneHome.sceneView != null) {
-            sceneHome.sceneView.setVideoBackdropActive(swapHeld);
+            sceneHome.sceneView.setVideoBackdropActive(false);
         }
     }
 
