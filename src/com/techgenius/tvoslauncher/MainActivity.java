@@ -5184,9 +5184,19 @@ public class MainActivity extends Activity {
         };
     }
 
+    private ImageView swapStill;   // the outgoing clip's last frame, held across the swap
+    private long swapT0;           // elapsedRealtime at swap begin — the tap->frame timeline
+
     private void startVideoWallpaper() {
-        // A clip swap: stop the player, then rebuild the TextureView — the fresh surface's
-        // available callback drives the new player, so no decoder-surface state is ever reused.
+        swapT0 = android.os.SystemClock.elapsedRealtime();
+        Log.i("VideoWallpaper", "swap " + swapT0 + ": begin");
+        // A clip swap: HOLD the outgoing frame (pixel-identical transition), stop the player,
+        // rebuild the TextureView — the held frame stays until the new clip's first frame.
+        boolean replacing = videoPlayer != null;
+        Bitmap lastFrame = null;
+        if (replacing && videoTexture != null && videoTexture.isAvailable()) {
+            try { lastFrame = videoTexture.getBitmap(); } catch (Throwable ignored) { }
+        }
         stopVideoWallpaper();
         if (videoTexture != null) {
             videoTexture.setSurfaceTextureListener(null);
@@ -5196,10 +5206,23 @@ public class MainActivity extends Activity {
         videoTexture.setOpaque(false);
         videoTexture.setSurfaceTextureListener(videoTextureListener());
         root.addView(videoTexture, 0, match());
+        if (lastFrame != null) {
+            if (swapStill == null) {
+                swapStill = new ImageView(this);
+                swapStill.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            }
+            swapStill.setImageBitmap(lastFrame);
+            swapStill.setVisibility(View.VISIBLE);
+            if (swapStill.getParent() == null) {
+                root.addView(swapStill, 1, match());   // above the video, below the scene chrome
+            }
+        }
     }
 
     /** The player start, driven by the fresh surface's available callback. */
     private void startVideoWallpaperWith(android.graphics.SurfaceTexture st) {
+        Log.i("VideoWallpaper", "swap " + swapT0 + ": surface available, +"
+                + (android.os.SystemClock.elapsedRealtime() - swapT0) + " ms");
         // Self-heal: the current clip can vanish under us (picker delete, cache eviction) while
         // the cache still holds others. Never sit clip-less — point at a random survivor.
         if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(this) && !VideoCache.hasCurrent(this)) {
@@ -5221,6 +5244,7 @@ public class MainActivity extends Activity {
         videoFrozenTicks = 0;
         videoHandler.removeCallbacks(videoStallTick);
         videoHandler.postDelayed(videoStallTick, 3000L);
+        pendingTexture = st;
         videoPlayer = new MediaPlayerWallpaper();
         final VideoWallpaperPlayer me = videoPlayer;
         videoPlayer.setListener(new VideoWallpaperPlayer.Listener() {
@@ -5229,7 +5253,10 @@ public class MainActivity extends Activity {
                     if (videoPlayer != me) return;    // a stop landed between event and runnable
                     videoPlaying = true;
                     videoStallSkips = 0;
+                    Log.i("VideoWallpaper", "swap " + swapT0 + ": first frame, +"
+                            + (android.os.SystemClock.elapsedRealtime() - swapT0) + " ms");
                     wallView.setVisibility(View.INVISIBLE);
+                    if (swapStill != null) swapStill.setVisibility(View.GONE);
                     if (sceneHome != null && sceneHome.sceneView != null) {
                         sceneHome.sceneView.setVideoBackdropActive(true);
                     }
@@ -5255,8 +5282,16 @@ public class MainActivity extends Activity {
 
     private final Runnable videoStallTick = new Runnable() {
         @Override public void run() {
-            Log.i("VideoWallpaper", "watchdog: player=" + (videoPlayer != null) + " playing=" + videoPlaying);
-            if (videoPlayer == null || !videoPlaying) return;
+            boolean alive = videoPlayer != null && videoPlaying;
+            Log.i("VideoWallpaper", "watchdog: player=" + (videoPlayer != null)
+                    + " playing=" + videoPlaying);
+            if (!alive) {
+                // A dead watchdog hid failures for hours: keep probing while video is wanted.
+                if (CustomMedia.isVideoWallpaperActiveOnCurrentLook(MainActivity.this)) {
+                    videoHandler.postDelayed(this, 3000L);
+                }
+                return;
+            }
             int pos = videoPlayer.positionMs();
             if (pos >= 0 && pos == videoLastPos) {
                 videoFrozenTicks++;
@@ -5292,9 +5327,10 @@ public class MainActivity extends Activity {
             videoPlayer = null;
         }
         videoPlaying = false;
-        if (wallView != null) wallView.setVisibility(View.VISIBLE);
+        boolean swapHeld = swapStill != null && swapStill.getVisibility() == View.VISIBLE;
+        if (wallView != null && !swapHeld) wallView.setVisibility(View.VISIBLE);
         if (sceneHome != null && sceneHome.sceneView != null) {
-            sceneHome.sceneView.setVideoBackdropActive(false);
+            sceneHome.sceneView.setVideoBackdropActive(swapHeld);
         }
     }
 

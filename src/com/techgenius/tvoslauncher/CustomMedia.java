@@ -1800,6 +1800,9 @@ public final class CustomMedia {
                 act.sceneHome.sceneView.onVideoWallpaperUpdated();
             }
             act.syncVideoWallpaper();
+            // stopVideoWallpaper() cancelled the rotation tick — re-arm it, or one manual skip
+            // permanently kills the 90 s rotation (review finding #4).
+            act.scheduleVideoRotation();
         }
     }
 

@@ -38,6 +38,7 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     }
 
     private boolean stopping;
+    private android.view.Surface surface;
 
     @Override
     public void start(SurfaceTexture texture, String path, boolean loop) {
@@ -53,7 +54,8 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             player.setVolume(0f, 0f);                       // a wallpaper is silent
             player.setLooping(loop);
             player.setOnInfoListener((mp, what, extra) -> {
-                android.util.Log.i("VideoWallpaper", "info what=" + what);
+                android.util.Log.i("VideoWallpaper", "info what=" + what + " at "
+                        + android.os.SystemClock.elapsedRealtime() + " ms");
                 if (what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START
                         && listener != null) {
                     listener.onRenderingStarted();          // first frame is on screen
@@ -118,6 +120,10 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             } catch (Exception ignored) {
             }
             player = null;
+        }
+        if (surface != null) {
+            surface.release();
+            surface = null;
         }
     }
 
