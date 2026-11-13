@@ -42,6 +42,12 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
 
     @Override
     public void start(android.view.Surface surface, String path, boolean loop) {
+        // A destroyed holder surface (activity paused while the SurfaceView released) makes
+        // prepare* throw IllegalStateException — wait for surfaceCreated instead.
+        if (surface == null || !surface.isValid()) {
+            android.util.Log.i("VideoWallpaper", "start skipped — surface not valid yet");
+            return;
+        }
         stopping = false;   // the next player owns error reporting again
         stop();
         try {
