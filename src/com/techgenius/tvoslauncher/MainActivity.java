@@ -439,6 +439,8 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (!I18n.getLang(this).equals(activeLang) || !Scenes.getLook(this).equals(activeLook)) {
+            Log.w("VideoWallpaper", "recreate loop: lang " + activeLang + "->" + I18n.getLang(this)
+                    + " look " + activeLook + "->" + Scenes.getLook(this));
             recreate();
             return;
         }
@@ -632,24 +634,7 @@ public class MainActivity extends Activity {
         // Decode is capped at the panel size so the GPU never ships 4K textures per frame.
         videoTexture = new TextureView(this);
         videoTexture.setOpaque(false);
-        videoTexture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-            @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
-                    int w, int h) {
-                if (videoTextureSwapping) return;   // our own fresh-texture swap: start() handles it
-                st.setDefaultBufferSize(screenW, screenH);
-                syncVideoWallpaper();
-            }
-            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
-                    int w, int h) { }
-            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
-                // During our own texture swap the framework tears the old texture down; that is
-                // housekeeping, not a reason to stop the player about to use the new one.
-                if (videoTextureSwapping) return true;
-                stopVideoWallpaper();
-                return true;
-            }
-            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) { }
-        });
+        videoTexture.setSurfaceTextureListener(videoTextureListener());
         root.addView(videoTexture, 0, match());
 
         root.addView(wallView, match());
@@ -5159,6 +5144,7 @@ public class MainActivity extends Activity {
     }
 
     void syncVideoWallpaper() {
+        Log.i("VideoWallpaper", "sync from " + new Throwable().getStackTrace()[1].toString());
         // Self-heal: the current clip can vanish under us (picker delete, cache eviction) while
         // the cache still holds others. Never sit clip-less — point at a random survivor.
         // NOTE: videoWanted() already requires hasCurrent, so this check must NOT use it —
@@ -5180,38 +5166,48 @@ public class MainActivity extends Activity {
         }
     }
 
+    private TextureView.SurfaceTextureListener videoTextureListener() {
+        return new TextureView.SurfaceTextureListener() {
+            @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st,
+                    int w, int h) {
+                st.setDefaultBufferSize(screenW, screenH);
+                syncVideoWallpaper();
+            }
+            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st,
+                    int w, int h) { }
+            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
+                stopVideoWallpaper();
+                return true;
+            }
+            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) { }
+        };
+    }
+
     private void startVideoWallpaper() {
         // Skip and rotation replace the running clip in place: stopping here (instead of guarding)
         // keeps the still hidden through the swap, so no poster flash between clips.
         if (videoPlayer != null) {
             videoPlayer.stop();
             videoPlayer = null;
-            // The old decoder releases the SHARED SurfaceTexture asynchronously; creating the
-            // new player on it the same instant froze the new clip on frame one. Give the
-            // release a beat, then start.
-            handler.postDelayed(this::startVideoWallpaperNow, 250L);
-            return;
         }
+        // Rebuild the TextureView per clip: a brand-new view, texture and surface kill every
+        // decoder-surface reuse bug — frame-one freezes and prepare IllegalStateExceptions.
+        if (videoTexture != null) {
+            videoTexture.setSurfaceTextureListener(null);
+            root.removeView(videoTexture);
+        }
+        videoTexture = new TextureView(this);
+        videoTexture.setOpaque(false);
+        videoTexture.setSurfaceTextureListener(videoTextureListener());
+        root.addView(videoTexture, 0, match());
         startVideoWallpaperNow();
     }
 
     private void startVideoWallpaperNow() {
+        Log.i("VideoWallpaper", "start from " + new Throwable().getStackTrace()[1].toString());
         if (videoTexture == null || !videoTexture.isAvailable()) {
             Log.i("VideoWallpaper", "start skipped — surface not available, waiting for it");
             return;
-        }
-        // A FRESH SurfaceTexture per player: reusing the previous player's texture across
-        // stop/start left decoder-owned surface state behind, and prepare threw or the new
-        // clip froze on frame one. The view adopts the new texture and renders it as usual.
-        videoTextureSwapping = true;
-        try {
-            android.graphics.SurfaceTexture fresh = new android.graphics.SurfaceTexture(0);
-            fresh.setDefaultBufferSize(screenW, screenH);
-            videoTexture.setSurfaceTexture(fresh);
-        } catch (Throwable t) {
-            Log.w("VideoWallpaper", "fresh texture failed", t);
-        } finally {
-            videoTextureSwapping = false;
         }
         File f = VideoCache.current(this);
         if (f == null || !f.exists()) return;
@@ -5254,6 +5250,7 @@ public class MainActivity extends Activity {
 
     private final Runnable videoStallTick = new Runnable() {
         @Override public void run() {
+            Log.i("VideoWallpaper", "watchdog: player=" + (videoPlayer != null) + " playing=" + videoPlaying);
             if (videoPlayer == null || !videoPlaying) return;
             int pos = videoPlayer.positionMs();
             if (pos >= 0 && pos == videoLastPos) {
