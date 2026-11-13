@@ -128,7 +128,14 @@ final class VideoCache {
             try {
                 mm.setDataSource(path);
                 String dur = mm.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
-                ok = dur != null && Long.parseLong(dur) >= 3000L;
+                long durationMs = dur == null ? 0 : Long.parseLong(dur);
+                // The moov's declared duration is a LIE on truncated downloads: the container
+                // claims 50 s while the data stops at 1 s. Prove the tail actually decodes.
+                Bitmap tail = durationMs >= 3000L
+                        ? mm.getFrameAtTime((long) (durationMs * 0.75 * 1000),
+                                android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        : null;
+                ok = tail != null;
             } finally {
                 mm.release();
             }
