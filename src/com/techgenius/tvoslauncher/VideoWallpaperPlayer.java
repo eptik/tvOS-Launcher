@@ -59,8 +59,8 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             // is reset and re-prepared per clip, never released between clips.
             player = new android.media.MediaPlayer();
             player.setSurface(surface);
-            player.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
             player.setVolume(0f, 0f);
+            // setVideoScalingMode throws -38 before the first prepare — set it in onPrepared.
             player.setOnInfoListener((mp, what, extra) -> {
                 android.util.Log.i("VideoWallpaper", "info what=" + what + " at "
                         + android.os.SystemClock.elapsedRealtime() + " ms");
@@ -99,6 +99,7 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             player.setLooping(loop);
             player.prepareAsync();
             player.setOnPreparedListener(mp -> {
+                try { mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT); } catch (Throwable ignored) { }
                 mp.start();
                 android.util.Log.i("VideoWallpaper", "prepared+started at "
                         + android.os.SystemClock.elapsedRealtime() + " ms");
