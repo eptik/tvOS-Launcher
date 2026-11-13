@@ -38,6 +38,8 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     }
 
     private boolean stopping;
+    private boolean loop;
+    private final long[] lastCompletion = {0L};
     private android.view.Surface surface;
 
     @Override
@@ -48,38 +50,31 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             android.util.Log.i("VideoWallpaper", "start skipped — surface not valid yet");
             return;
         }
-        stopping = false;   // the next player owns error reporting again
-        stop();
-        try {
-            // Buffer size is already set to the display size by MainActivity's
-            // SurfaceTextureListener; do not override it here (a 4K panel wants native buffers).
+        stopping = false;
+        this.loop = loop;
+        if (player == null) {
+            // First start: create the player once and keep it for the launcher's whole life.
+            // Releasing it detaches the compositor's media layer and the surface's last buffer
+            // freezes on screen — the wallpaper-engine pattern is ONE persistent player that
+            // is reset and re-prepared per clip, never released between clips.
             player = new android.media.MediaPlayer();
-            player.setDataSource(path);
             player.setSurface(surface);
             player.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
-            player.setVolume(0f, 0f);                       // a wallpaper is silent
-            player.setLooping(loop);
+            player.setVolume(0f, 0f);
             player.setOnInfoListener((mp, what, extra) -> {
                 android.util.Log.i("VideoWallpaper", "info what=" + what + " at "
                         + android.os.SystemClock.elapsedRealtime() + " ms");
                 if (what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START
                         && listener != null) {
-                    listener.onRenderingStarted();          // first frame is on screen
+                    listener.onRenderingStarted();
                 }
                 return false;
             });
             player.setOnErrorListener((mp, what, extra) -> {
-                // stop() makes some decoders emit onError(1) asynchronously — during teardown
-                // that is teardown noise, not a playback failure.
                 if (stopping) return true;
                 if (listener != null) listener.onError(new Exception("decoder error " + what));
                 return true;
             });
-            // Defense in depth: some decoders complete instead of looping; the wallpaper must
-            // never sit frozen on the last frame until the watchdog notices. And a clip that
-            // completes again within 3 s is a truncated head fragment looping itself — treat
-            // it as a broken file, not a wallpaper.
-            final long[] lastCompletion = {0L};
             player.setOnCompletionListener(mp -> {
                 android.util.Log.i("VideoWallpaper", "completed at " + mp.getCurrentPosition() + " ms");
                 if (!loop) return;
@@ -94,15 +89,22 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
                 mp.seekTo(0);
                 mp.start();
             });
+        } else {
+            // Subsequent clips: reset keeps the surface attachment alive in the compositor.
+            player.reset();
+        }
+        try {
+            player.setDataSource(path);
+            player.setSurface(surface);
+            player.setLooping(loop);
             player.prepareAsync();
             player.setOnPreparedListener(mp -> {
                 mp.start();
                 android.util.Log.i("VideoWallpaper", "prepared+started at "
                         + android.os.SystemClock.elapsedRealtime() + " ms");
             });
-            android.util.Log.i("VideoWallpaper", "MediaPlayer started");
         } catch (Exception e) {
-            stop();
+            android.util.Log.w("VideoWallpaper", "start failed", e);
             if (listener != null) listener.onError(e);
         }
     }
