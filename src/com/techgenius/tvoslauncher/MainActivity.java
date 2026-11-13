@@ -445,6 +445,7 @@ public class MainActivity extends Activity {
         resumed = true;
         activeInstance = this;
         VideoCache.migrateToDownloads(this);
+        VideoCache.warmPlayability(this);   // validate the pool before the first swap can pick a broken clip
         NowPlaying.addListener(npListener);
         NowPlaying.refresh(getApplicationContext());
         syncVideoWallpaper();

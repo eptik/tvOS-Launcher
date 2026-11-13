@@ -278,6 +278,11 @@ final class VideoCache {
         }
     }
 
+    /** Probes every pool file once so the first rotation never runs on a half-validated pool. */
+    static void warmPlayability(Context c) {
+        for (String[] clip : cachedClips(c)) playable(c, clip[0]);
+    }
+
     /** Copies legacy private-cache clips into the Download folder once; the pool then lives there. */
     static void migrateToDownloads(Context c) {
         SharedPreferences p = prefs(c);
