@@ -112,6 +112,34 @@ final class VideoCache {
         return scaled;
     }
 
+    /** Duration verdicts per file, cached for the process: probing decodes the moov, not free. */
+    private static final java.util.HashMap<String, Boolean> playableCache = new java.util.HashMap<>();
+
+    /** True when the file carries a real video track (>= 3 s): truncated downloads play a tiny
+     * head fragment on loop and read as a static wallpaper forever. */
+    static boolean playable(Context c, String key) {
+        File f = videoFile(c, key);
+        String path = f.getPath();
+        Boolean cached = playableCache.get(path);
+        if (cached != null) return cached;
+        boolean ok = false;
+        try {
+            android.media.MediaMetadataRetriever mm = new android.media.MediaMetadataRetriever();
+            try {
+                mm.setDataSource(path);
+                String dur = mm.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+                ok = dur != null && Long.parseLong(dur) >= 3000L;
+            } finally {
+                mm.release();
+            }
+        } catch (Exception e) {
+            ok = false;
+        }
+        if (!ok) Log.w(TAG, "unplayable clip (truncated/corrupt): " + key);
+        playableCache.put(path, ok);
+        return ok;
+    }
+
     /** Cached clips that still exist on disk: the Download folder first, then legacy private clips. */
     static List<String[]> cachedClips(Context c) {
         List<String[]> out = new ArrayList<>();
@@ -121,7 +149,9 @@ final class VideoCache {
             java.util.Arrays.sort(downloads, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
             for (File f : downloads) {
                 String key = f.getName().replaceAll("(?i)\\.mp4$", "");
-                if (seen.add(key)) out.add(new String[]{key, key, key, "download"});
+                if (seen.add(key) && playable(c, key)) {
+                    out.add(new String[]{key, key, key, "download"});
+                }
             }
         }
         try {
@@ -131,7 +161,7 @@ final class VideoCache {
                 String key = o.optString("key");
                 if (videoFile(c, key).exists()
                         && !WallperCatalogParse.Clip.excluded(o.optString("category"))
-                        && seen.add(key)) {
+                        && seen.add(key) && playable(c, key)) {
                     out.add(new String[]{key, o.optString("slug"), o.optString("name"), o.optString("category")});
                 }
             }
