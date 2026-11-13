@@ -88,8 +88,12 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
                 mp.seekTo(0);
                 mp.start();
             });
-            player.prepare();
-            player.start();
+            player.prepareAsync();
+            player.setOnPreparedListener(mp -> {
+                mp.start();
+                android.util.Log.i("VideoWallpaper", "prepared+started at "
+                        + android.os.SystemClock.elapsedRealtime() + " ms");
+            });
             android.util.Log.i("VideoWallpaper", "MediaPlayer started");
         } catch (Exception e) {
             stop();
