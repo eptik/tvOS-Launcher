@@ -41,7 +41,7 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
     private android.view.Surface surface;
 
     @Override
-    public void start(SurfaceTexture texture, String path, boolean loop) {
+    public void start(android.view.Surface surface, String path, boolean loop) {
         stopping = false;   // the next player owns error reporting again
         stop();
         try {
@@ -49,7 +49,7 @@ class MediaPlayerWallpaper implements VideoWallpaperPlayer {
             // SurfaceTextureListener; do not override it here (a 4K panel wants native buffers).
             player = new android.media.MediaPlayer();
             player.setDataSource(path);
-            player.setSurface(new android.view.Surface(texture));
+            player.setSurface(surface);
             player.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
             player.setVolume(0f, 0f);                       // a wallpaper is silent
             player.setLooping(loop);
