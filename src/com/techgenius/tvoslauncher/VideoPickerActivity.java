@@ -258,6 +258,50 @@ public class VideoPickerActivity extends Activity {
                     } finally {
                         mm.release();
                     }
+                    // Motion check: a locked-shot clip loops a near-still frame and reads as a
+                    // FROZEN wallpaper. Sample three frames and require visible motion.
+                    android.media.MediaMetadataRetriever mm2 = new android.media.MediaMetadataRetriever();
+                    try {
+                        mm2.setDataSource(tmp.getPath());
+                        android.graphics.Bitmap f0 = mm2.getFrameAtTime(0,
+                                android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                        android.graphics.Bitmap f2 = mm2.getFrameAtTime(2_000_000,
+                                android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                        android.graphics.Bitmap f4 = mm2.getFrameAtTime(4_000_000,
+                                android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                        if (f0 == null || f2 == null || f4 == null) {
+                            throw new Exception("could not sample frames for the motion check");
+                        }
+                        int w = Math.min(320, f0.getWidth()), h = w * f0.getHeight() / Math.max(1, f0.getWidth());
+                        android.graphics.Bitmap s0 = android.graphics.Bitmap.createScaledBitmap(f0, w, h, true);
+                        android.graphics.Bitmap s2 = android.graphics.Bitmap.createScaledBitmap(f2, w, h, true);
+                        android.graphics.Bitmap s4 = android.graphics.Bitmap.createScaledBitmap(f4, w, h, true);
+                        double diff01 = 0, diff12 = 0;
+                        int px = w * h;
+                        int[] p0 = new int[px], p2 = new int[px], p4 = new int[px];
+                        s0.getPixels(p0, 0, w, 0, 0, w, h);
+                        s2.getPixels(p2, 0, w, 0, 0, w, h);
+                        s4.getPixels(p4, 0, w, 0, 0, w, h);
+                        for (int i = 0; i < px; i++) {
+                            int a = p0[i], b = p2[i], cc = p4[i];
+                            diff01 += Math.abs(((a >> 16) & 255) - ((b >> 16) & 255))
+                                    + Math.abs(((a >> 8) & 255) - ((b >> 8) & 255))
+                                    + Math.abs((a & 255) - (b & 255));
+                            diff12 += Math.abs(((b >> 16) & 255) - ((cc >> 16) & 255))
+                                    + Math.abs(((b >> 8) & 255) - ((cc >> 8) & 255))
+                                    + Math.abs((b & 255) - (cc & 255));
+                        }
+                        double motion = Math.min(diff01, diff12) / (double) px;
+                        f0.recycle(); f2.recycle(); f4.recycle();
+                        s0.recycle(); s2.recycle(); s4.recycle();
+                        if (motion < 5.0) {
+                            throw new Exception("low-motion clip (motion score "
+                                    + String.format(java.util.Locale.ROOT, "%.1f", motion)
+                                    + " < 5) — it would look frozen as a wallpaper");
+                        }
+                    } finally {
+                        mm2.release();
+                    }
                     // Codec check: the codec must have a decoder ON THIS TV (the X1+ has no AV1,
                     // so a valid AV1 file would still freeze on frame one forever).
                     android.media.MediaExtractor mex = new android.media.MediaExtractor();
