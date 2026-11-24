@@ -130,7 +130,7 @@
 
         <activity
             android:name=".VideoPickerActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="landscape"
             android:theme="@style/HomeTheme"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode|density" />
