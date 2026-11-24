@@ -39,12 +39,13 @@ public class VideoPickerActivity extends Activity {
 
     private static final String TAG = "VideoPicker";
     private static final String CDN = "https://cdn.wallper.app";
-    private static final int SHOW_ROWS = 60;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private LinearLayout list;
     private TextView head;
     private TextView status;
+    /** The owned-clip list, probed off the UI thread (each check tail-decodes a video). */
+    private List<String[]> library = new ArrayList<>();
     private List<WallperCatalogParse.Clip> clips = new ArrayList<>();
     private String downloadingKey;
 
@@ -54,6 +55,15 @@ public class VideoPickerActivity extends Activity {
         super.onCreate(saved);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         setContentView(build());
+        // The library probe decodes video tails: never on the UI thread (it hung the picker's
+        // first paint — the pause-timeout in the logs).
+        new Thread(() -> {
+            List<String[]> lib = VideoCache.cachedClips(this);
+            runOnUiThread(() -> {
+                library = lib;
+                populate();
+            });
+        }, "library-probe").start();
         WallperCatalog.loadAsync(this, (kept, fetchedAt) -> runOnUiThread(() -> {
             clips = kept;
             populate();
@@ -91,12 +101,127 @@ public class VideoPickerActivity extends Activity {
         return root;
     }
 
-    private int rowsShown = SHOW_ROWS;
+    private int page = 0;
+    private static final int PAGE_COLS = 4, PAGE_ROWS = 2;
+    private static final int PAGE_SIZE = PAGE_COLS * PAGE_ROWS;
+
+    /** The page strip above the grid: previous / indicator / next. */
+    private View pageBar(int pages) {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(0, dp(10), 0, dp(2));
+        TextView prev = navBtn("‹  " + I18n.s(this, "Prev", "Önceki"));
+        prev.setOnClickListener(v -> { if (page > 0) { page--; populate(); } });
+        TextView next = navBtn(I18n.s(this, "Next", "Sonraki") + "  ›");
+        next.setOnClickListener(v -> { if (page < pages - 1) { page++; populate(); } });
+        TextView ind = new TextView(this);
+        ind.setText("Page " + (page + 1) + " / " + pages);
+        ind.setTextColor(0xB3FFFFFF);
+        ind.setTextSize(13);
+        ind.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        ind.setLayoutParams(ilp);
+        bar.addView(prev);
+        bar.addView(ind);
+        bar.addView(next);
+        return bar;
+    }
+
+    private TextView navBtn(String label) {
+        TextView b = new TextView(this);
+        b.setText(label);
+        b.setTextSize(13);
+        b.setTextColor(0xFFF4F4F6);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(16), dp(8), dp(16), dp(8));
+        b.setBackground(new MainActivity.LiquidGlass(dp(14), 0x2210161C, null, 0, 0, 1f).adaptive());
+        b.setFocusable(true);
+        b.setOnFocusChangeListener((v, f) -> b.setTextColor(f ? 0xFF111114 : 0xFFF4F4F6));
+        return b;
+    }
+
+    /** One catalog tile: large poster, name, state badge; the bottom edge D-pad-down flips the page. */
+    private View tile(WallperCatalogParse.Clip c, int idxInPage) {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER_HORIZONTAL);
+        col.setPadding(dp(6), dp(6), dp(6), dp(8));
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        clp.leftMargin = idxInPage % PAGE_COLS == 0 ? 0 : dp(8);
+        col.setLayoutParams(clp);
+        col.setFocusable(true);
+        col.setClickable(true);
+        col.setBackground(new MainActivity.LiquidGlass(dp(12), 0x1A10161C, null, 0, 0, 1f).adaptive());
+        col.setOnFocusChangeListener((v, f) -> v.animate()
+                .scaleX(f ? 1.04f : 1f).scaleY(f ? 1.04f : 1f).setDuration(120).start());
+
+        ImageView thumb = new ImageView(this);
+        thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        int tw = dp(200), th = dp(112);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(tw, th);
+        thumb.setLayoutParams(tlp);
+        GradientDrawable ph = new GradientDrawable();
+        ph.setCornerRadius(dp(6));
+        ph.setColor(0x2EFFFFFF);
+        thumb.setBackground(ph);
+        thumb.setClipToOutline(true);
+        col.addView(thumb);
+
+        TextView name = new TextView(this);
+        name.setText(c.name == null ? "" : c.name);
+        name.setTextColor(Color.WHITE);
+        name.setTextSize(12);
+        name.setMaxLines(1);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        name.setGravity(Gravity.CENTER_HORIZONTAL);
+        name.setPadding(0, dp(5), 0, 0);
+        col.addView(name);
+
+        TextView badge = new TextView(this);
+        badge.setTextSize(10);
+        badge.setGravity(Gravity.CENTER_HORIZONTAL);
+        badge.setPadding(0, dp(2), 0, 0);
+        String key = bareKey(c);
+        if (VideoCache.isCurrent(this, key)) {
+            badge.setText("✓ " + I18n.s(this, "now playing", "şimdi oynatılıyor"));
+            badge.setTextColor(0xFF9CE29C);
+        } else if (VideoCache.isCached(this, key)) {
+            badge.setText(I18n.s(this, "in library", "kitaplıkta"));
+            badge.setTextColor(0x99FFFFFF);
+        }
+        col.addView(badge);
+
+        loadThumbSized(thumb, c.previewUrl, tw, th);
+        col.setOnClickListener(v -> pick(c, badge));
+        // Page flip on the bottom edge: pressing down on the last row advances.
+        if (idxInPage >= PAGE_SIZE - PAGE_COLS) {
+            col.setOnKeyListener((v, k, ev) -> {
+                if (ev.getAction() == android.view.KeyEvent.ACTION_DOWN
+                        && k == android.view.KeyEvent.KEYCODE_DPAD_DOWN && page < (clips.size() + PAGE_SIZE - 1) / PAGE_SIZE - 1) {
+                    page++;
+                    populate();
+                    list.postDelayed(() -> {
+                        if (list.getChildCount() > 0) {
+                            View g = list.getChildAt(list.getChildCount() - 2);
+                            if (g instanceof ViewGroup && ((ViewGroup) g).getChildCount() > 0) {
+                                ((ViewGroup) g).getChildAt(0).requestFocus();
+                            }
+                        }
+                    }, 80);
+                    return true;
+                }
+                return false;
+            });
+        }
+        return col;
+    }
 
     private void populate() {
         list.removeAllViews();
         // ---- the owner's library first: real files they keep, with an explicit delete
-        List<String[]> lib = VideoCache.cachedClips(this);
+        // (the clip playability probes are slow — the list is loaded off the UI thread in onCreate)
+        List<String[]> lib = library;
         long totalBytes = 0;
         for (String[] e : lib) {
             File vf = VideoCache.videoFile(this, e[0]);
@@ -111,35 +236,29 @@ public class VideoPickerActivity extends Activity {
             list.addView(sectionLabel(I18n.s(this, "From wallper.app — most liked",
                     "wallper.app'tan — en beğenilenler")));
         }
-        int shown = 0;
-        for (WallperCatalogParse.Clip c : clips) {
-            if (shown >= rowsShown) break;
-            list.addView(row(c, shown++));
+        // ---- the catalog as a paged grid: 4x2 large tiles, D-pad down at the bottom edge
+        // flips forward, the page bar flips either way (the owner asked for grid + pages).
+        int pages = (clips.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+        if (page >= pages) page = Math.max(0, pages - 1);
+        if (page < 0) page = 0;
+        list.addView(pageBar(pages));
+        int start = page * PAGE_SIZE;
+        int end = Math.min(clips.size(), start + PAGE_SIZE);
+        for (int r = start; r < end; r += PAGE_COLS) {
+            LinearLayout gridRow = new LinearLayout(this);
+            gridRow.setOrientation(LinearLayout.HORIZONTAL);
+            gridRow.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams grlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            grlp.topMargin = r == start ? 0 : dp(8);
+            gridRow.setLayoutParams(grlp);
+            for (int i = r; i < Math.min(r + PAGE_COLS, end); i++) {
+                gridRow.addView(tile(clips.get(i), i - start));
+            }
+            list.addView(gridRow);
         }
-        if (clips.size() > rowsShown) {
-            // Progressive disclosure instead of a hard 60-row cap: the catalog holds 800+ clips,
-            // the owner asked why only one page was reachable.
-            TextView more = new TextView(this);
-            more.setText(I18n.s(this, "Show more", "Daha fazla göster")
-                    + "  (+" + Math.min(SHOW_ROWS, clips.size() - rowsShown) + ")");
-            more.setTextSize(15);
-            more.setTextColor(0xFFF4F4F6);
-            more.setGravity(Gravity.CENTER);
-            more.setPadding(dp(8), dp(10), dp(8), dp(10));
-            more.setBackground(new MainActivity.LiquidGlass(
-                    dp(14), 0x2210161C, null, 0, 0, 1f).adaptive());
-            more.setOnClickListener(v -> {
-                rowsShown += SHOW_ROWS;
-                populate();
-            });
-            more.setOnFocusChangeListener((v, f) -> more.setTextColor(f ? 0xFF111114 : 0xFFF4F4F6));
-            more.setFocusable(true);
-            more.setFocusableInTouchMode(true);
-            list.addView(more);
-        }
-        status.setText(clips.size() > rowsShown
-                ? "Top " + rowsShown + " of " + clips.size() + " — pick one to download"
-                : clips.size() + " clips");
+        status.setText("Page " + (page + 1) + " of " + pages
+                + " — clips " + (clips.isEmpty() ? 0 : start + 1) + "–" + end + " of " + clips.size());
     }
 
     private TextView sectionLabel(String t) {
@@ -227,83 +346,15 @@ public class VideoPickerActivity extends Activity {
                 List<String[]> rest = VideoCache.cachedClips(this);
                 if (!rest.isEmpty()) VideoCache.setCurrentKey(this, rest.get(0)[0]);
             }
-            populate();
+            new Thread(() -> {
+                List<String[]> fresh = VideoCache.cachedClips(this);
+                runOnUiThread(() -> {
+                    library = fresh;
+                    populate();
+                });
+            }, "library-probe").start();
         });
         row.addView(del);
-        return row;
-    }
-
-    private View row(WallperCatalogParse.Clip c, int index) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        // tile background drawn inline: this project has no shared row drawable
-        row.setPadding(dp(8), dp(6), dp(8), dp(6));
-        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rlp.topMargin = index == 0 ? 0 : dp(6);
-        row.setLayoutParams(rlp);
-        row.setFocusable(true);
-        row.setClickable(true);
-        row.setOnFocusChangeListener((v, f) -> v.animate()
-                .scaleX(f ? 1.02f : 1f).scaleY(f ? 1.02f : 1f).setDuration(120).start());
-
-        ImageView thumb = new ImageView(this);
-        thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(dp(96), dp(54));
-        thumb.setLayoutParams(tlp);
-        GradientDrawable ph = new GradientDrawable();
-        ph.setCornerRadius(dp(4));
-        ph.setColor(0x2EFFFFFF);
-        thumb.setBackground(ph);
-        loadThumb(thumb, c.previewUrl);
-        row.addView(thumb);
-
-        LinearLayout col = new LinearLayout(this);
-        col.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        clp.leftMargin = dp(10);
-        col.setLayoutParams(clp);
-
-        TextView name = new TextView(this);
-        name.setText(c.name);
-        name.setTextColor(Color.WHITE);
-        name.setTextSize(13);
-        name.setSingleLine(true);
-        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        col.addView(name);
-
-        TextView meta = new TextView(this);
-        meta.setText(c.width + "×" + c.height + "  ·  " + c.category + "  ·  ♥ " + c.likes
-                + "  ·  " + c.durationSec + "s");
-        meta.setTextColor(0x99FFFFFF);
-        meta.setTextSize(11);
-        meta.setPadding(0, dp(2), 0, 0);
-        col.addView(meta);
-
-        TextView state = new TextView(this);
-        state.setTextSize(11);
-        state.setGravity(Gravity.END);
-        state.setTextColor(0xBFFFFFFF);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.leftMargin = dp(10);
-        String key = bareKey(c);
-        if (VideoCache.isCurrent(this, key)) state.setText("✓ current");
-        else if (VideoCache.isCached(this, key)) state.setText("cached — hold to delete");
-        state.setLayoutParams(slp);
-        row.addView(state);
-        row.setTag(state);
-
-        row.setOnClickListener(v -> pick(c, state));
-        row.setOnLongClickListener(v -> {
-            if (VideoCache.isCached(this, key)) {
-                VideoCache.deleteClip(this, key);
-                Toast.makeText(this, "Deleted from storage", Toast.LENGTH_SHORT).show();
-                populate();
-            }
-            return true;
-        });
         return row;
     }
 
@@ -518,7 +569,7 @@ public class VideoPickerActivity extends Activity {
                 ? c.videoKey.substring(0, c.videoKey.length() - 4) : c.videoKey;
     }
 
-    private void loadThumb(ImageView target, String url) {
+    private void loadThumbSized(ImageView target, String url, int wDp, int hDp) {
         target.setTag(url);
         new Thread(() -> {
             Bitmap bmp = null;
@@ -531,7 +582,7 @@ public class VideoPickerActivity extends Activity {
             } catch (Exception ignored) {
             }
             if (bmp == null) return;
-            Bitmap scaled = Bitmap.createScaledBitmap(bmp, dp(96) * 2, dp(54) * 2, true);
+            Bitmap scaled = Bitmap.createScaledBitmap(bmp, wDp * 2, hDp * 2, true);
             if (scaled != bmp) bmp.recycle();
             runOnUiThread(() -> {
                 if (url.equals(target.getTag())) target.setImageBitmap(scaled);
