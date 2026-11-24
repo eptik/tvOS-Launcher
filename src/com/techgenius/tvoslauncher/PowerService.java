@@ -57,8 +57,77 @@ public class PowerService extends AccessibilityService {
     private volatile boolean audioDumpWatchActive = false;
     private Thread audioDumpWatchThread;
     private volatile long serviceConnectedElapsedMs = 0L;
+    private volatile long lastDpadEventUptimeMs = 0L;
+    private volatile boolean foregroundIsGame = false;
+    private volatile boolean keyFilterCurrentlyEnabled = true;
     private static final long VOL_REPEAT_INITIAL_MS = 280L;
     private static final long VOL_REPEAT_INTERVAL_MS = 85L;
+
+    public static Context getActiveContextOr(Context fallback) {
+        PowerService s = instance;
+        return s != null ? s : fallback;
+    }
+
+    private void setKeyFilteringEnabled(boolean enable) {
+        if (keyFilterCurrentlyEnabled == enable) return;
+        try {
+            AccessibilityServiceInfo info = getServiceInfo();
+            if (info != null) {
+                if (enable) {
+                    info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+                            | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+                } else {
+                    info.flags &= ~AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
+                }
+                setServiceInfo(info);
+                keyFilterCurrentlyEnabled = enable;
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static boolean isGameOrEmulatorPackage(Context c, String pkg) {
+        if (c == null || pkg == null || pkg.isEmpty()) return false;
+        if (pkg.equals(c.getPackageName())) return false;
+        String lower = pkg.toLowerCase(java.util.Locale.US);
+        if (lower.contains("ppsspp")
+                || lower.contains("retroarch")
+                || lower.contains("dolphinemu")
+                || lower.contains("aethersx2")
+                || lower.contains("duckstation")
+                || lower.contains("epsxe")
+                || lower.contains("citra")
+                || lower.contains("lime3ds")
+                || lower.contains("lemuroid")
+                || lower.contains("mupen64")
+                || lower.contains("drastic")
+                || lower.contains("redream")
+                || lower.contains("flycast")
+                || lower.contains("vita3k")
+                || lower.contains("yuzu")
+                || lower.contains("sudachi")
+                || lower.contains("skyline")
+                || lower.contains("winlator")
+                || lower.contains("steamlink")
+                || lower.contains("limelight")
+                || lower.contains("moonlight")
+                || lower.contains("geforcenow")) {
+            return true;
+        }
+        try {
+            android.content.pm.ApplicationInfo ai = c.getPackageManager().getApplicationInfo(pkg, 0);
+            if (ai != null) {
+                if ((ai.flags & android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0) {
+                    return true;
+                }
+                if (Build.VERSION.SDK_INT >= 26 && ai.category == android.content.pm.ApplicationInfo.CATEGORY_GAME) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
 
     // Caffeine Mode (denies Android TV idle / sleep / automatic ambient mode)
     private static android.os.PowerManager.WakeLock caffeineWakeLock;
@@ -306,7 +375,18 @@ public class PowerService extends AccessibilityService {
     protected void onServiceConnected() {
         instance = this;
         serviceConnectedElapsedMs = SystemClock.elapsedRealtime();
-        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        // If "Launch Automatically on System Boot" is enabled and the system just booted,
+        // AccessibilityService connects much earlier than BOOT_COMPLETED on many TVs: launch Home immediately!
+        if (SystemClock.elapsedRealtime() < 150_000L) {
+            try {
+                if (BootReceiver.isLaunchOnBootEnabled(this)) {
+                    BootReceiver.triggerFastBootSequenceIfNeeded(this);
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
         try {
             AccessibilityServiceInfo info = getServiceInfo();
             if (info != null) {
@@ -316,16 +396,17 @@ public class PowerService extends AccessibilityService {
             }
         } catch (Throwable ignored) {
         }
-        syncVolumeHoldFix();
-        syncCaffeine(this);
-        LocalAdb.ensureKeepAliveWatchdog(this);
-        MediaWatchService.ensureSessionTracking(this);
 
-        // If "Launch Automatically on System Boot" is enabled and the system just booted,
-        // AccessibilityService connects much earlier than BOOT_COMPLETED on many TVs: launch Home immediately!
-        if (SystemClock.elapsedRealtime() < 150_000L && BootReceiver.isLaunchOnBootEnabled(this)) {
-            BootReceiver.triggerFastBootSequenceIfNeeded(this);
-        }
+        handler.post(() -> {
+            try {
+                audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                syncVolumeHoldFix();
+                syncCaffeine(this);
+                LocalAdb.ensureKeepAliveWatchdog(this);
+                MediaWatchService.ensureSessionTracking(this);
+            } catch (Throwable ignored) {
+            }
+        });
     }
 
     @Override
@@ -628,6 +709,11 @@ public class PowerService extends AccessibilityService {
 
             while (instance == this && audioDumpWatchActive && ButtonMapper.isVolumeHoldFixEnabled(appCtx)) {
                 try {
+                    // Pause binder dump polling while a game/emulator is in the foreground or while D-Pad navigation is active
+                    if (foregroundIsGame || (!wmKeyIsDown && (SystemClock.uptimeMillis() - lastDpadEventUptimeMs) < 600L)) {
+                        Thread.sleep(250L);
+                        continue;
+                    }
                     int mode = ButtonMapper.getVolumeHoldFixMode(appCtx);
                     // In Mode 1 or Mode 3, when Persistent ADB Mode is active and getevent stream is connected, let getevent handle it
                     if ((mode == ButtonMapper.VOLUME_FIX_MODE_1 || mode == ButtonMapper.VOLUME_FIX_MODE_3)
@@ -941,6 +1027,20 @@ public class PowerService extends AccessibilityService {
     protected boolean onKeyEvent(KeyEvent event) {
         if (event == null) return false;
         int code = event.getKeyCode();
+        // Fast-bypass D-Pad arrow keys immediately so holding down arrow keys never stutters or gets stuck
+        if (code == KeyEvent.KEYCODE_DPAD_UP
+                || code == KeyEvent.KEYCODE_DPAD_DOWN
+                || code == KeyEvent.KEYCODE_DPAD_LEFT
+                || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            lastDpadEventUptimeMs = SystemClock.uptimeMillis();
+            return false;
+        }
+        // Fast-bypass standard gamepad controller buttons (A/B/X/Y/L1/R1/L2/R2/Start/Select/Thumb/Mode)
+        // without checking SOURCE_GAMEPAD/SOURCE_JOYSTICK, because many Bluetooth TV remotes (Xiaomi, TCL, etc.)
+        // advertise SOURCE_GAMEPAD in their HID descriptor. Games/emulators also disable key filtering via foregroundIsGame.
+        if (code >= KeyEvent.KEYCODE_BUTTON_A && code <= KeyEvent.KEYCODE_BUTTON_MODE) {
+            return false;
+        }
         if (event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0
                 && (code == KeyEvent.KEYCODE_BACK
@@ -984,6 +1084,11 @@ public class PowerService extends AccessibilityService {
     static boolean sleep() {
         PowerService s = instance;
         return s != null && Build.VERSION.SDK_INT >= 28 && s.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+    }
+
+    static boolean showPowerDialog() {
+        PowerService s = instance;
+        return s != null && Build.VERSION.SDK_INT >= 21 && s.performGlobalAction(GLOBAL_ACTION_POWER_DIALOG);
     }
 
     static boolean sendGlobalAction(int action) {
@@ -1036,6 +1141,12 @@ public class PowerService extends AccessibilityService {
         if (e != null && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getPackageName() != null) {
             String fgPkg = e.getPackageName().toString();
             String clsName = e.getClassName() != null ? e.getClassName().toString() : "";
+            // Ignore system UI overlays (volume dialog, toast, status bar) when updating game state
+            if (!"com.android.systemui".equals(fgPkg) && !"android".equals(fgPkg)) {
+                boolean isGame = isGameOrEmulatorPackage(this, fgPkg);
+                foregroundIsGame = isGame;
+                setKeyFilteringEnabled(!isGame);
+            }
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
             MediaWatchService.pollActiveSessionsAsync(this);
 
@@ -1049,24 +1160,35 @@ public class PowerService extends AccessibilityService {
                 return;
             }
 
-            // Fire TV Stick ("Home on Fire" style) & OEM Home Button Fix:
-            // On Fire OS 7/8, Amazon intercepts KEYCODE_HOME before onKeyEvent and launches com.amazon.tv.launcher
-            // or com.amazon.firehomestarter. When Home Button Fix is enabled, intercept its window immediately!
-            if (ButtonMapper.isHomeFixEnabled(this)
-                    && ("com.amazon.tv.launcher".equals(fgPkg) || "com.amazon.firehomestarter".equals(fgPkg))) {
-                BootReceiver.launchHomeImmediately(this);
-                return;
+            // OEM Home Button Fix (Fire TV, Google TV, Android TV):
+            // On Google TV & Fire OS, the OS intercepts KEYCODE_HOME before onKeyEvent and launches the stock launcher.
+            // When Home Button Fix is enabled, intercept its window immediately!
+            if (ButtonMapper.isHomeFixEnabled(this)) {
+                if (Perms.isAnySystemLauncherPackage(this, fgPkg)) {
+                    CharSequence cls = e.getClassName();
+                    if ("com.google.android.apps.tv.launcherx".equals(fgPkg)
+                            && (cls == null || !cls.toString().contains("HomeActivity"))) {
+                        // Allow Google TV Dashboard / Quick Settings and ReauthActivity through
+                    } else {
+                        BootReceiver.launchHomeImmediately(this);
+                        return;
+                    }
+                }
             }
 
-            // Fast boot guard: during the first 40s after system boot, if "Launch on System Boot" is enabled
-            // and a stock OEM/Chinese TV launcher pops to the foreground, immediately bring tvOS Launcher to front!
-            if (SystemClock.elapsedRealtime() < 160_000L
-                    && (SystemClock.elapsedRealtime() - serviceConnectedElapsedMs) < 40_000L
+            // Fast boot guard: during the first 60s after system boot, if "Launch on System Boot" is enabled
+            // and any stock OEM/Chinese TV launcher pops to the foreground, immediately bring tvOS Launcher to front!
+            if (SystemClock.elapsedRealtime() < 180_000L
+                    && (SystemClock.elapsedRealtime() - serviceConnectedElapsedMs) < 60_000L
                     && BootReceiver.isLaunchOnBootEnabled(this)) {
-                for (String stockLauncher : Perms.getStockTvHomePackages()) {
-                    if (stockLauncher.equals(fgPkg)) {
+                if (Perms.isAnySystemLauncherPackage(this, fgPkg)) {
+                    CharSequence cls = e.getClassName();
+                    if ("com.google.android.apps.tv.launcherx".equals(fgPkg)
+                            && (cls == null || !cls.toString().contains("HomeActivity"))) {
+                        // Allow Google TV settings/dialogs
+                    } else {
                         BootReceiver.launchHomeImmediately(this);
-                        break;
+                        return;
                     }
                 }
             }
@@ -1079,7 +1201,8 @@ public class PowerService extends AccessibilityService {
                 AccessibilityNodeInfo stop = findButton(root,
                         "force stop", "force_stop", "forcestop",
                         "zorla durdur", "durdurmaya zorla",
-                        "arr\u00eater", "forzar detenci\u00f3n", "beenden erzwingen", "\u5f3a\u884c\u505c\u6b62");
+                        "arr\u00eater", "forzar detenci\u00f3n", "beenden erzwingen", "\u5f3a\u884c\u505c\u6b62",
+                        "\u05d0\u05d9\u05dc\u05d5\u05e5 \u05e2\u05e6\u05d9\u05e8\u05d4", "\u05e2\u05e6\u05d9\u05e8\u05d4 \u05d1\u05db\u05e4\u05d9\u05d9\u05d4", "\u05e2\u05e6\u05d9\u05e8\u05d4 \u05de\u05d0\u05d5\u05dc\u05e6\u05ea");
                 if (stop != null) {
                     if (!stop.isEnabled()) {
                         advance();
@@ -1094,7 +1217,7 @@ public class PowerService extends AccessibilityService {
             }
             if (clickedStop && !clickedOk) {
                 AccessibilityNodeInfo ok = findButton(root,
-                        "android:id/button1", "ok", "tamam", "force stop", "zorla durdur");
+                        "android:id/button1", "ok", "tamam", "force stop", "zorla durdur", "\u05d0\u05d9\u05e9\u05d5\u05e8");
                 if (ok != null && ok.isEnabled()) {
                     ok.performAction(AccessibilityNodeInfo.ACTION_CLICK);
                     clickedOk = true;

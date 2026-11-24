@@ -15,7 +15,7 @@ import java.util.Set;
  * Multi-language localization support for tvOS Launcher:
  * English (en), Turkish (tr), Swedish (sv), Hindi/Indian (hi), Spanish (es), French (fr),
  * German (de), Italian (it), Russian (ru), Portuguese (pt), Arabic (ar),
- * Japanese (ja), and Chinese (zh).
+ * Japanese (ja), Chinese (zh), Korean (ko) and Hebrew (he).
  */
 public final class I18n {
     public static final String LANG_EN = "en";
@@ -28,11 +28,14 @@ public final class I18n {
     public static final String LANG_DE = "de";
     public static final String LANG_IT = "it";
     public static final String LANG_RU = "ru";
+    public static final String LANG_PL = "pl";
     public static final String LANG_PT = "pt";
+    public static final String LANG_PT_BR = "pt-BR";
     public static final String LANG_AR = "ar";
     public static final String LANG_JA = "ja";
     public static final String LANG_ZH = "zh";
     public static final String LANG_KO = "ko";
+    public static final String LANG_HE = "he";
 
     public static final String[][] LANGUAGES = {
         {LANG_EN, "English", "Use tvOS Launcher in English"},
@@ -45,16 +48,19 @@ public final class I18n {
         {LANG_DE, "Deutsch", "tvOS Launcher auf Deutsch verwenden"},
         {LANG_IT, "Italiano", "Usa tvOS Launcher in italiano"},
         {LANG_RU, "Русский", "Использовать tvOS Launcher на русском"},
-        {LANG_PT, "Português", "Usar o tvOS Launcher em português"},
+        {LANG_PT, "Português (Portugal)", "Usar o tvOS Launcher em português (Portugal)"},
+        {LANG_PT_BR, "Português (Brasil)", "Usar o tvOS Launcher em português do Brasil"},
+        {LANG_PL, "Polski", "Użyj tvOS Launcher w języku polskim"},
         {LANG_AR, "العربية", "استخدم tvOS Launcher باللغة العربية"},
         {LANG_JA, "日本語", "tvOS Launcher を日本語で使用する"},
         {LANG_ZH, "中文", "使用中文版 tvOS Launcher"},
-        {LANG_KO, "한국어", "tvOS Launcher를 한국어로 사용"}
+        {LANG_KO, "\ud55c\uad6d\uc5b4", "tvOS Launcher\ub97c \ud55c\uad6d\uc5b4\ub85c \uc0ac\uc6a9"},
+        {LANG_HE, "\u05e2\u05d1\u05e8\u05d9\u05ea", "\u05e9\u05d9\u05de\u05d5\u05e9 \u05d1-tvOS Launcher \u05d1\u05e2\u05d1\u05e8\u05d9\u05ea"}
     };
 
     private static final Set<String> SUPPORTED = new HashSet<>(Arrays.asList(
             LANG_EN, LANG_TR, LANG_AZ, LANG_SV, LANG_HI, LANG_ES, LANG_FR, LANG_DE,
-            LANG_IT, LANG_RU, LANG_PT, LANG_AR, LANG_JA, LANG_ZH, LANG_KO
+            LANG_IT, LANG_RU, LANG_PT, LANG_PT_BR, LANG_PL, LANG_AR, LANG_JA, LANG_ZH, LANG_KO, LANG_HE
     ));
 
     private static String cachedLang;
@@ -134,6 +140,9 @@ public final class I18n {
         EN_MAP.put("dash_prayer_times", "Prayer Times");
         EN_MAP.put("dash_football", "Football Matches");
         EN_MAP.put("dash_latest_releases", "Most Watched");
+        EN_MAP.put("dash_cricket", "Live Cricket Scores");
+        EN_MAP.put("dash_news", "Live News");
+        EN_MAP.put("dash_top_media", "Top Movies & Series");
         EN_MAP.put("weather", "Weather");
         EN_MAP.put("prayer_fajr", "Fajr");
         EN_MAP.put("prayer_sunrise", "Sunrise");
@@ -169,10 +178,15 @@ public final class I18n {
         EN_MAP.put("keep_watching", "Keep watching");
         EN_MAP.put("releases_country_setting", "Most Watched countries");
         EN_MAP.put("releases_country_auto", "Automatic (Sync with UI language)");
+        EN_MAP.put("news_country_setting", "Live News country");
+        EN_MAP.put("news_country_auto", "Automatic (Sync with UI language)");
 
         TR_MAP.put("dash_prayer_times", "Namaz Vakitleri");
         TR_MAP.put("dash_football", "Futbol Maçları");
         TR_MAP.put("dash_latest_releases", "Çok İzlenenler");
+        TR_MAP.put("dash_cricket", "Canlı Kriket Skorları");
+        TR_MAP.put("dash_news", "Canlı Haberler");
+        TR_MAP.put("dash_top_media", "En İyi Film ve Diziler");
         TR_MAP.put("weather", "Hava Durumu");
         TR_MAP.put("prayer_fajr", "İmsak");
         TR_MAP.put("prayer_sunrise", "Güneş");
@@ -208,16 +222,48 @@ public final class I18n {
         TR_MAP.put("keep_watching", "İzlemeye devam et");
         TR_MAP.put("releases_country_setting", "Çok İzlenenler ülkeleri");
         TR_MAP.put("releases_country_auto", "Otomatik (Arayüz diliyle eşitle)");
+        TR_MAP.put("news_country_setting", "Canlı Haberler ülkesi");
+        TR_MAP.put("news_country_auto", "Otomatik (Arayüz diliyle eşitle)");
 
-        String[] langs = {LANG_AZ, LANG_SV, LANG_HI, LANG_ES, LANG_FR, LANG_DE, LANG_IT, LANG_RU, LANG_PT, LANG_AR, LANG_JA, LANG_ZH, LANG_KO};
+        String[] langs = {LANG_AZ, LANG_SV, LANG_HI, LANG_ES, LANG_FR, LANG_DE, LANG_IT, LANG_RU, LANG_PT, LANG_PT_BR, LANG_PL, LANG_AR, LANG_JA, LANG_ZH, LANG_KO, LANG_HE};
         for (String l : langs) {
             LANG_MAPS.put(l, new HashMap<String, String>());
         }
 
         initTranslations();
+        LANG_MAPS.get(LANG_PT_BR).putAll(LANG_MAPS.get(LANG_PT));
+        initPortugueseBrazil();
         initSwedish();
         initKorean();
         initAzerbaijani();
+        initPolish();
+        I18nHe.init(LANG_MAPS.get(LANG_HE));
+        LANG_MAPS.get(LANG_HE).put("dash_cricket", "תוצאות קריקט בשידור חי");
+        LANG_MAPS.get(LANG_HE).put("dash_news", "חדשות בשידור חי");
+        LANG_MAPS.get(LANG_HE).put("dash_top_media", "סרטים וסדרות מובילים");
+        LANG_MAPS.get(LANG_HE).put("Live Cricket Scores", "תוצאות קריקט בשידור חי");
+        LANG_MAPS.get(LANG_HE).put("Live News", "חדשות בשידור חי");
+        LANG_MAPS.get(LANG_HE).put("Live News country", "מדינת חדשות בשידור חי");
+        LANG_MAPS.get(LANG_HE).put("news_country_setting", "מדינת חדשות בשידור חי");
+        LANG_MAPS.get(LANG_HE).put("news_country_auto", "אוטומטי (סנכרון עם שפת הממשק)");
+        LANG_MAPS.get(LANG_HE).put("Top Movies & Series", "סרטים וסדרות מובילים");
+        LANG_MAPS.get(LANG_HE).put("Dock rows", "שורות בדוק");
+        LANG_MAPS.get(LANG_HE).put("Small clock", "שעון קטן");
+        LANG_MAPS.get(LANG_HE).put("Applications", "יישומים");
+        LANG_MAPS.get(LANG_HE).put("Show on Home Screen", "הצג במסך הבית");
+        LANG_MAPS.get(LANG_HE).put("UNINSTALL", "הסרת התקנה");
+        LANG_MAPS.get(LANG_HE).put("Uninstall tvOS Launcher", "הסר התקנת tvOS Launcher");
+        LANG_MAPS.get(LANG_HE).put("Hide input", "הסתר כניסה");
+        LANG_MAPS.get(LANG_HE).put("Custom label", "שם מותאם אישית");
+        LANG_MAPS.get(LANG_HE).put("Change name of input", "שנה שם כניסה");
+        LANG_MAPS.get(LANG_HE).put("Reset to default", "אפס לברירת מחדל");
+        LANG_MAPS.get(LANG_HE).put("Disable", "השבת");
+        LANG_MAPS.get(LANG_HE).put("Download CleanYourTV", "הורד CleanYourTV");
+        LANG_MAPS.get(LANG_HE).put("Re-download CleanYourTV", "הורד מחדש CleanYourTV");
+        LANG_MAPS.get(LANG_HE).put("minute", "דקה");
+        LANG_MAPS.get(LANG_HE).put("minutes", "דקות");
+        LANG_MAPS.get(LANG_HE).put(" minute", " דקה");
+        LANG_MAPS.get(LANG_HE).put(" minutes", " דקות");
     }
 
     private static void add(String en, String hi, String es, String fr, String de, String it, String ru, String pt, String ar, String ja, String zh) {
@@ -234,10 +280,17 @@ public final class I18n {
     }
 
     private static void initTranslations() {
-        // Greetings
+        // Greetings & Widgets
+        add("dash_cricket", "लाइव क्रिकेट स्कोर", "Resultados de Críquet en Vivo", "Scores de Cricket en Direct", "Live-Cricket-Ergebnisse", "Risultati Cricket in Diretta", "Крикет (онлайн-счёт)", "Resultados de Críquete ao Vivo", "نتائج الكريكيت المباشرة", "ライブクリケットスコア", "板球实时比分");
+        add("dash_news", "लाइव समाचार", "Noticias en Vivo", "Actualités en Direct", "Live-Nachrichten", "Notizie in Diretta", "Новости в прямом эфире", "Notícias em Direto", "الأخبار المباشرة", "ライブニュース", "实时新闻");
+        add("dash_top_media", "शीर्ष फ़िल्में और सीरीज़", "Mejores Películas y Series", "Meilleurs Films et Séries", "Top-Filme & Serien", "Migliori Film e Serie", "Лучшие фильмы и сериалы", "Melhores Filmes e Séries", "أفضل الأفلام والمسلسلات", "トップ映画＆シリーズ", "高分电影与剧集");
+        add("Live Cricket Scores", "लाइव क्रिकेट स्कोर", "Resultados de Críquet en Vivo", "Scores de Cricket en Direct", "Live-Cricket-Ergebnisse", "Risultati Cricket in Diretta", "Крикет (онлайн-счёт)", "Resultados de Críquete ao Vivo", "نتائج الكريكيت المباشرة", "ライブクリケットスコア", "板球实时比分");
+        add("Live News", "लाइव समाचार", "Noticias en Vivo", "Actualités en Direct", "Live-Nachrichten", "Notizie in Diretta", "Новости в прямом эфире", "Notícias em Direto", "الأخبار المباشرة", "ライブニュース", "实时新闻");
+        add("Top Movies & Series", "शीर्ष फ़िल्में और सीरीज़", "Mejores Películas y Series", "Meilleurs Films et Séries", "Top-Filme & Serien", "Migliori Film e Serie", "Лучшие фильмы и сериалы", "Melhores Filmes e Séries", "أفضل الأفلام والمسلسلات", "トップ映画＆シリーズ", "高分电影与剧集");
         add("Most Watched", "सबसे ज़्यादा देखे गए", "Más vistos", "Les plus regardés", "Meistgesehen", "Più visti", "Самое популярное", "Mais vistos", "الأكثر مشاهدة", "人気コンテンツ", "热门观看");
         add("Loading titles…", "शीर्षक लोड हो रहे हैं…", "Cargando títulos…", "Chargement des titres…", "Titel werden geladen…", "Caricamento titoli…", "Загрузка контента…", "A carregar títulos…", "جارٍ تحميل العناوين…", "タイトルを読み込み中…", "正在加载内容…");
         add("Most Watched countries", "सबसे ज़्यादा देखे गए देश", "Países de Más vistos", "Pays des plus regardés", "Meistgesehen-Länder", "Paesi Più visti", "Страны популярного", "Países de Mais vistos", "بلدان الأكثر مشاهدة", "人気コンテンツの国", "热门观看国家/地区");
+        add("Live News country", "लाइव समाचार देश", "País de Noticias en Vivo", "Pays des Actualités en Direct", "Land der Live-Nachrichten", "Paese Notizie in Diretta", "Страна новостей в прямом эфире", "País de Notícias em Direto", "بلد الأخبار المباشرة", "ライブニュースの国", "实时新闻国家/地区");
         add("Automatic (Sync with UI language)", "स्वचालित (UI भाषा के साथ सिंक)", "Automático (sincronizar con idioma)", "Automatique (synchroniser avec la langue)", "Automatisch (mit UI-Sprache synchronisieren)", "Automatico (sincronizza con lingua UI)", "Автоматически (по языку интерфейса)", "Automático (sincronizar com idioma)", "تلقائي (مزامنة مع لغة الواجهة)", "自動（表示言語と同期）", "自动（与界面语言同步）");
         add("Good morning", "सुप्रभात", "Buenos días", "Bonjour", "Guten Morgen", "Buongiorno", "Доброе утро", "Bom dia", "صباح الخير", "おはようございます", "早上好");
         add("Good afternoon", "नमस्कार", "Buenas tardes", "Bon après-midi", "Guten Tag", "Buon pomeriggio", "Добрый день", "Boa tarde", "مساء الخير", "こんにちは", "下午好");
@@ -603,6 +656,40 @@ public final class I18n {
         add("Update Available", "अपडेट उपलब्ध है", "Actualización disponible", "Mise à jour disponible", "Update verfügbar", "Aggiornamento disponibile", "Доступно обновление", "Atualização disponível", "يتوفر تحديث", "アップデートがあります", "发现新版本");
         add("Download & Install", "डाउनलोड और इंस्टॉल करें", "Descargar e instalar", "Télécharger et installer", "Herunterladen & installieren", "Scarica e installa", "Скачать и установить", "Transferir e instalar", "تنزيل وتثبيت", "ダウンロードしてインストール", "下载并安装");
         add("Up to Date", "अप टू डेट", "Actualizado", "À jour", "Auf dem neuesten Stand", "Aggiornato", "Установлена последняя версия", "Atualizado", "محدّث لأحدث إصدار", "最新の状態です", "已是最新版本");
+        add("Scroll for more ›", "और देखने के लिए स्क्रॉल करें ›", "Desplaza para ver más ›", "Faites défiler pour plus ›", "Für mehr scrollen ›", "Scorri per altro ›", "Прокрутите, чтобы увидеть больше ›", "Deslize para ver mais ›", "مرّر للمزيد ›", "スクロールしてもっと見る ›", "滚动查看更多 ›");
+        add("Apps using Nuvio", "Nuvio इस्तेमाल करने वाले ऐप्स", "Apps que usan Nuvio", "Applis utilisant Nuvio", "Apps, die Nuvio nutzen", "App che usano Nuvio", "Приложения с Nuvio", "Apps que usam o Nuvio", "التطبيقات التي تستخدم Nuvio", "Nuvio を使うアプリ", "使用 Nuvio 的应用");
+        add("Official app", "आधिकारिक ऐप", "App oficial", "Appli officielle", "Offizielle App", "App ufficiale", "Официальное приложение", "App oficial", "التطبيق الرسمي", "公式アプリ", "官方应用");
+        add("Always on", "हमेशा चालू", "Siempre activado", "Toujours activé", "Immer an", "Sempre attivo", "Всегда включено", "Sempre ligado", "مفعّل دائمًا", "常にオン", "始终开启");
+        add("Not installed", "इंस्टॉल नहीं है", "No instalada", "Non installée", "Nicht installiert", "Non installata", "Не установлено", "Não instalada", "غير مثبّت", "未インストール", "未安装");
+        add("Suggested", "सुझाया गया", "Sugerida", "Suggérée", "Vorgeschlagen", "Suggerita", "Рекомендуется", "Sugerida", "مقترح", "おすすめ", "推荐");
+        add("Link Nuvio forks (like Nuvio Native Legacy) that sign in to the same Nuvio account. Their dock tile then shows Nuvio's Continue Watching, and Search opens titles in them.",
+                "उसी Nuvio खाते से साइन इन करने वाले Nuvio फ़ोर्क (जैसे Nuvio Native Legacy) जोड़ें। फिर उनकी डॉक टाइल पर Nuvio का Continue Watching दिखेगा और Search उनमें टाइटल खोलेगा।",
+                "Vincula versiones de Nuvio (como Nuvio Native Legacy) que inician sesión con la misma cuenta de Nuvio. Su icono del dock mostrará Seguir viendo de Nuvio y la Búsqueda abrirá los títulos en ellas.",
+                "Associez les versions de Nuvio (comme Nuvio Native Legacy) connectées au même compte Nuvio. Leur tuile du dock affichera Reprendre de Nuvio, et la Recherche y ouvrira les titres.",
+                "Verknüpfe Nuvio-Forks (z. B. Nuvio Native Legacy), die mit demselben Nuvio-Konto angemeldet sind. Ihre Dock-Kachel zeigt dann Nuvios „Weiterschauen“, und die Suche öffnet Titel darin.",
+                "Collega le versioni di Nuvio (come Nuvio Native Legacy) che accedono con lo stesso account Nuvio. Il loro riquadro nel dock mostrerà Continua a guardare di Nuvio e la Ricerca aprirà i titoli lì.",
+                "Привяжите форки Nuvio (например, Nuvio Native Legacy), вошедшие в тот же аккаунт Nuvio. Их плитка в доке покажет «Продолжить просмотр» Nuvio, а Поиск будет открывать в них фильмы и сериалы.",
+                "Associe versões do Nuvio (como o Nuvio Native Legacy) que entram com a mesma conta Nuvio. O ícone delas na dock mostrará o Continuar a ver do Nuvio, e a Pesquisa abrirá os títulos nelas.",
+                "اربط إصدارات Nuvio المعدّلة (مثل Nuvio Native Legacy) التي تسجّل الدخول بحساب Nuvio نفسه. ستعرض أيقونتها في الشريط قائمة متابعة المشاهدة من Nuvio، وسيفتح البحث العناوين فيها.",
+                "同じ Nuvio アカウントでサインインする Nuvio のフォーク（Nuvio Native Legacy など）をリンクします。ドックのタイルに Nuvio の「視聴を続ける」が表示され、検索からタイトルを開けます。",
+                "关联使用同一 Nuvio 账号登录的 Nuvio 分支版本（如 Nuvio Native Legacy）。其程序坞图标将显示 Nuvio 的继续观看，搜索也会在其中打开影片。");
+        add("Dock rows", "डॉक पंक्तियाँ", "Filas del dock", "Lignes du dock", "Dock-Zeilen", "Righe del dock", "Ряды дока", "Linhas do dock", "صفوف الشريط", "ドックの行数", "程序坞行数");
+        add("Small clock", "छोटी घड़ी", "Reloj pequeño", "Petite horloge", "Kleine Uhr", "Orologio piccolo", "Маленькие часы", "Relógio pequeno", "ساعة صغيرة", "小さい時計", "小尺寸时钟");
+        add("Applications", "ऐप्स", "Aplicaciones", "Applications", "Anwendungen", "Applicazioni", "Приложения", "Aplicações", "التطبيقات", "アプリケーション", "应用程序");
+        add("Show on Home Screen", "होम स्क्रीन पर दिखाएं", "Mostrar en pantalla de inicio", "Afficher sur l'écran d'accueil", "Auf dem Startbildschirm anzeigen", "Mostra nella schermata Home", "Показывать на главном экране", "Mostrar no ecrã inicial", "إظهار على الشاشة الرئيسية", "ホーム画面に表示", "在主屏幕上显示");
+        add("UNINSTALL", "अनइंस्टॉल", "DESINSTALAR", "DÉSINSTALLER", "DEINSTALLIEREN", "DISINSTALLA", "УДАЛЕНИЕ", "DESINSTALAR", "إلغاء التثبيت", "アンインストール", "卸载");
+        add("Uninstall tvOS Launcher", "tvOS Launcher अनइंस्टॉल करें", "Desinstalar tvOS Launcher", "Désinstaller tvOS Launcher", "tvOS Launcher deinstallieren", "Disinstalla tvOS Launcher", "Удалить tvOS Launcher", "Desinstalar tvOS Launcher", "إلغاء تثبيت tvOS Launcher", "tvOS Launcher をアンインストール", "卸载 tvOS Launcher");
+        add("Hide input", "इनपुट छुपाएं", "Ocultar entrada", "Masquer l'entrée", "Eingang ausblenden", "Nascondi ingresso", "Скрыть вход", "Ocultar entrada", "إخفاء المدخل", "入力を非表示", "隐藏输入源");
+        add("Custom label", "कस्टम नाम", "Etiqueta personalizada", "Nom personnalisé", "Eigene Bezeichnung", "Etichetta personalizzata", "Своё название", "Etiqueta personalizada", "اسم مخصص", "カスタムラベル", "自定义名称");
+        add("Change name of input", "इनपुट का नाम बदलें", "Cambiar nombre de entrada", "Renommer l'entrée", "Eingangsname ändern", "Cambia nome ingresso", "Изменить название входа", "Alterar nome da entrada", "تغيير اسم المدخل", "入力の名前を変更", "更改输入源名称");
+        add("Reset to default", "डिफ़ॉल्ट पर रीसेट करें", "Restablecer predeterminado", "Réinitialiser par défaut", "Auf Standard zurücksetzen", "Ripristina predefinito", "Сбросить по умолчанию", "Repor predefinição", "إعادة ضبط للافتراضي", "デフォルトに戻す", "恢复默认");
+        add("Disable", "अक्षम करें", "Desactivar", "Désactiver", "Deaktivieren", "Disattiva", "Отключить", "Desativar", "تعطيل", "無効にする", "禁用");
+        add("Download CleanYourTV", "CleanYourTV डाउनलोड करें", "Descargar CleanYourTV", "Télécharger CleanYourTV", "CleanYourTV herunterladen", "Scarica CleanYourTV", "Скачать CleanYourTV", "Transferir CleanYourTV", "تنزيل CleanYourTV", "CleanYourTV をダウンロード", "下载 CleanYourTV");
+        add("Re-download CleanYourTV", "CleanYourTV पुनः डाउनलोड करें", "Volver a descargar CleanYourTV", "Retélécharger CleanYourTV", "CleanYourTV erneut herunterladen", "Riscarica CleanYourTV", "Перекачать CleanYourTV", "Voltar a transferir CleanYourTV", "إعادة تنزيل CleanYourTV", "CleanYourTV を再ダウンロード", "重新下载 CleanYourTV");
+        add("minute", "मिनट", "minuto", "minute", "Minute", "minuto", "минута", "minuto", "دقيقة", "分", "分钟");
+        add("minutes", "मिनट", "minutos", "minutes", "Minuten", "minuti", "минут", "minutos", "دقائق", "分", "分钟");
+        add(" minute", " मिनट", " minuto", " minute", " Minute", " minuto", " минута", " minuto", " دقيقة", " 分", " 分钟");
+        add(" minutes", " मिनट", " minutos", " minutes", " Minuten", " minuti", " минут", " minutos", " دقائق", " 分", " 分钟");
     }
 
     private static void sv(String en, String svVal) {
@@ -955,10 +1042,41 @@ public final class I18n {
         sv("Backup settings to Download", "Säkerhetskopiera inställningar till Download");
         sv("Restore settings from folder…", "Återställ inställningar från mapp…");
         sv("Choose folder ›", "Välj mapp ›");
+        sv("Scroll for more ›", "Skrolla för mer ›");
+        sv("Apps using Nuvio", "Appar som använder Nuvio");
+        sv("Official app", "Officiell app");
+        sv("Always on", "Alltid på");
+        sv("Not installed", "Inte installerad");
+        sv("Suggested", "Föreslagen");
+        sv("Link Nuvio forks (like Nuvio Native Legacy) that sign in to the same Nuvio account. Their dock tile then shows Nuvio's Continue Watching, and Search opens titles in them.",
+                "Länka Nuvio-forkar (som Nuvio Native Legacy) som loggar in med samma Nuvio-konto. Deras ruta i dockan visar då Nuvios Fortsätt titta, och Sök öppnar titlar i dem.");
         sv("Most Watched", "Mest sedda");
+        sv("dash_cricket", "Live-cricketresultat");
+        sv("dash_news", "Livenyheter");
+        sv("dash_top_media", "Toppfilmer och serier");
+        sv("Live Cricket Scores", "Live-cricketresultat");
+        sv("Live News", "Livenyheter");
+        sv("Top Movies & Series", "Toppfilmer och serier");
         sv("Loading titles…", "Laddar titlar…");
         sv("Most Watched countries", "Mest sedda länder");
         sv("Automatic (Sync with UI language)", "Automatisk (synka med gränssnittsspråk)");
+        sv("Dock rows", "Dockrader");
+        sv("Small clock", "Liten klocka");
+        sv("Applications", "Applikationer");
+        sv("Show on Home Screen", "Visa på hemskärmen");
+        sv("UNINSTALL", "AVINSTALLERA");
+        sv("Uninstall tvOS Launcher", "Avinstallera tvOS Launcher");
+        sv("Hide input", "Dölj ingång");
+        sv("Custom label", "Anpassad etikett");
+        sv("Change name of input", "Ändra namn på ingång");
+        sv("Reset to default", "Återställ till standard");
+        sv("Disable", "Inaktivera");
+        sv("Download CleanYourTV", "Ladda ner CleanYourTV");
+        sv("Re-download CleanYourTV", "Ladda ner CleanYourTV igen");
+        sv("minute", "minut");
+        sv("minutes", "minuter");
+        sv(" minute", " minut");
+        sv(" minutes", " minuter");
     }
 
     private static void ko(String en, String koVal) {
@@ -1314,10 +1432,41 @@ public final class I18n {
         ko("Not done", "미완료");
         ko("apps", "개 앱");
         ko("packages", "개 패키지");
+        ko("Scroll for more ›", "더 보려면 스크롤 ›");
+        ko("Apps using Nuvio", "Nuvio 사용 앱");
+        ko("Official app", "공식 앱");
+        ko("Always on", "항상 켜짐");
+        ko("Not installed", "설치되지 않음");
+        ko("Suggested", "추천");
+        ko("Link Nuvio forks (like Nuvio Native Legacy) that sign in to the same Nuvio account. Their dock tile then shows Nuvio's Continue Watching, and Search opens titles in them.",
+                "같은 Nuvio 계정으로 로그인하는 Nuvio 포크(예: Nuvio Native Legacy)를 연결하세요. 해당 앱의 독 타일에 Nuvio의 이어서 보기가 표시되고, 검색에서 작품이 그 앱으로 열립니다.");
         ko("Most Watched", "인기 콘텐츠");
+        ko("dash_cricket", "실시간 크리켓 스코어");
+        ko("dash_news", "실시간 뉴스");
+        ko("dash_top_media", "인기 영화 및 시리즈");
+        ko("Live Cricket Scores", "실시간 크리켓 스코어");
+        ko("Live News", "실시간 뉴스");
+        ko("Top Movies & Series", "인기 영화 및 시리즈");
         ko("Loading titles…", "콘텐츠 불러오는 중…");
         ko("Most Watched countries", "인기 콘텐츠 국가");
         ko("Automatic (Sync with UI language)", "자동 (UI 언어와 동기화)");
+        ko("Dock rows", "독 줄 수");
+        ko("Small clock", "작은 시계");
+        ko("Applications", "애플리케이션");
+        ko("Show on Home Screen", "홈 화면에 표시");
+        ko("UNINSTALL", "설치 삭제");
+        ko("Uninstall tvOS Launcher", "tvOS Launcher 설치 삭제");
+        ko("Hide input", "입력 숨기기");
+        ko("Custom label", "사용자 지정 이름");
+        ko("Change name of input", "입력 이름 변경");
+        ko("Reset to default", "기본값으로 재설정");
+        ko("Disable", "사용 안 함");
+        ko("Download CleanYourTV", "CleanYourTV 다운로드");
+        ko("Re-download CleanYourTV", "CleanYourTV 다시 다운로드");
+        ko("minute", "분");
+        ko("minutes", "분");
+        ko(" minute", "분");
+        ko(" minutes", "분");
     }
 
     private static void az(String en, String azVal) {
@@ -1329,6 +1478,12 @@ public final class I18n {
         az("dash_prayer_times", "Namaz Vaxtları");
         az("dash_football", "Futbol Oyunları");
         az("dash_latest_releases", "Çox İzlənənlər");
+        az("dash_cricket", "Canlı Kriket Xalları");
+        az("dash_news", "Canlı Xəbərlər");
+        az("dash_top_media", "Ən Yaxşı Film və Seriallar");
+        az("Live Cricket Scores", "Canlı Kriket Xalları");
+        az("Live News", "Canlı Xəbərlər");
+        az("Top Movies & Series", "Ən Yaxşı Film və Seriallar");
         az("weather", "Hava Proqnozu");
         az("prayer_fajr", "Sübh");
         az("prayer_sunrise", "Günəş");
@@ -1499,24 +1654,720 @@ public final class I18n {
         az("Check for updates", "Yeniləmələri yoxla");
         az("Current version", "Cari versiya");
         az("GitHub release latest version", "GitHub son versiyası");
+        az("Scroll for more ›", "Daha çox üçün sürüşdürün ›");
+        az("Other apps", "Digər tətbiqlər");
+        az("Apps using Nuvio", "Nuvio istifadə edən tətbiqlər");
+        az("Official app", "Rəsmi tətbiq");
+        az("Always on", "Həmişə aktiv");
+        az("Not installed", "Quraşdırılmayıb");
+        az("Suggested", "Tövsiyə olunur");
+        az("Link Nuvio forks (like Nuvio Native Legacy) that sign in to the same Nuvio account. Their dock tile then shows Nuvio's Continue Watching, and Search opens titles in them.",
+                "Eyni Nuvio hesabı ilə daxil olan Nuvio versiyalarını (Nuvio Native Legacy kimi) əlaqələndirin. Onda onların dock plitəsi Nuvio-nun İzləməyə davam et siyahısını göstərəcək, Axtarış isə başlıqları onlarda açacaq.");
+        az("Dock rows", "Dock sətirləri");
+        az("Small clock", "Kiçik saat");
+        az("Applications", "Tətbiqlər");
+        az("Show on Home Screen", "Ana ekranda göstər");
+        az("UNINSTALL", "SİL");
+        az("Uninstall tvOS Launcher", "tvOS Launcher-i sil");
+        az("Hide input", "Girişi gizlət");
+        az("Custom label", "Xüsusi ad");
+        az("Change name of input", "Girişin adını dəyiş");
+        az("Reset to default", "Varsayılana sıfırla");
+        az("Disable", "Deaktiv et");
+        az("Download CleanYourTV", "CleanYourTV yüklə");
+        az("Re-download CleanYourTV", "CleanYourTV yenidən yüklə");
+        az("minute", "dəqiqə");
+        az("minutes", "dəqiqə");
+        az(" minute", " dəqiqə");
+        az(" minutes", " dəqiqə");
+    }
+
+    private static void pl(String en, String plVal) {
+        LANG_MAPS.get(LANG_PL).put(en, plVal);
+    }
+
+    private static void initPolish() {
+
+        // FIRST SETUP
+        pl("Welcome", "Witaj");
+        pl("Let’s set up tvOS Launcher.", "Skonfiguruj tvOS Launcher.");
+        pl("Skip Setup", "Pomiń konfigurację");
+        pl("Get Started", "Rozpocznij");
+        pl("Create Your Profile", "Utwórz swój profil");
+        pl("Your name and an avatar. Each profile keeps its own apps, background and Home Screen. Up to three people can have one.", "Twoje imię i awatar. Każdy profil przechowuje własne aplikacje, tło i ekran główny. Maksymalnie trzy osoby mogą mieć profil.");
+        pl("Your name", "Twoje imię");
+        pl("Appearance", "Wygląd");
+        pl("Choose how you want your Home Screen to look.", "Wybierz, jak ma wyglądać Twój ekran główny.");
+        pl("Rotating nature scenes with a glass clock and bottom dock", "Obracające się sceny przyrody z szklanym zegarem i dolnym dokiem");
+        pl("Top shelf, 6-column app grid and custom wallpapers", "Górna półka, siatka aplikacji 6-kolumnowa i niestandardowe tapety");
+        pl("Choose Your Scenes", "Wybierz swoje sceny");
+        pl("Choose which scenes take turns behind the glass clock.", "Wybierz, które sceny będą się zmieniać za szklanym zegarem.");
+        pl("Included in rotation", "Uwzględnione w rotacji");
+        pl("A small weather display on Home, with a 5-day forecast.", "Mały wyświetlacz pogody na ekranie głównym, z prognozą na 5 dni.");
+        pl("Use My Location", "Użyj mojej lokalizacji");
+        pl("Choose a City…", "Wybierz miasto…");
+        pl("Looks like ", "Wygląda na to ");
+        pl("Search by name", "Szukaj według nazwy");
+        pl("Don't Show Weather", "Nie pokazuj pogody");
+        pl("Presentation", "Prezentacja");
+        pl("Images, videos and webpages sent from any phone or computer on the same Wi-Fi. For everyone on this TV.", "Obrazy, filmy i strony internetowe wysyłane z dowolnego telefonu lub komputera w tej samej sieci Wi-Fi. Dla wszystkich na tym telewizorze.");
+        pl("Use Presentation", "Użyj prezentacji");
+        pl("Adds a Presentation card to Home", "Dodaje kartę Prezentacja do ekranu głównego");
+        pl("Start with the TV", "Uruchom z telewizorem");
+        pl("Play as soon as the TV turns on (signage)", "Odtwarzaj, gdy tylko telewizor się włączy (reklama)");
+        pl("Keep Screen Awake", "Utrzymuj ekran aktywny");
+        pl("No screensaver or skleep while presenting", "Brak wygaszacza ekranu ani uśpienia podczas prezentacji");
+        pl("Finish Setting Up", "Zakończ konfigurację");
+        pl("Select a usage mode for permissions (Button Mapper Accessibility, Continue Watching, and Wi-Fi). Pick ONE usage mode below:", "Wybierz tryb użycia dla uprawnień (Dostępność Button Mapper, Kontynuuj oglądanie i Wi-Fi). Wybierz JEDEN tryb użycia poniżej:");
+        pl("Mode: Secure Auto Setup & Close ADB (Recommended)", "Tryb: Bezpieczna automatyczna konfiguracja i zamknięcie ADB (zalecane)");
+        pl("Grants WRITE_SECURE_SETTINGS once to self-repair Accessibility, then closes port 5555", "Nadaje WRITE_SECURE_SETTINGS raz w celu samonaprawy Dostępności, a następnie zamyka port 5555");
+        pl("Mode: Persistent ADB Setup (keep ADB Open)", "Tryb: Utrzymanie konfiguracji ADB (trzymaj ADB otwarte)");
+        pl("Keeps network ADB enabled for CleanYourTV debloating (Note: leaves port 5555 open on LAN)", "Utrzymuje sieciowe ADB włączone dla odchudzania CleanYourTV (Uwaga: pozostawia port 5555 otwarty w LAN)");
+        pl("Mode: Manual Setup (Without ADB)", "Tryb: Ręczna konfiguracja (bez ADB)");
+        pl("Grant permissions one by one manually through Android TV Settings", "Nadaj uprawnienia jeden po drugim ręcznie w ustawieniach Android TV");
+        pl("Make tvOS Launcher Default Home", "Ustaw tvOS Launcher jako domyślny ekran główny");
+        pl("On TCL, Philips, and Google TVs, OEM firmware often forces the stock launcher when pressing Home. Follow the steps below so pressing Home always opens tvOS Launcher, then click Continue.", "Na telewizorach TCL, Philips i Google, oprogramowanie OEM często wymusza użycie domyślnego launchera po naciśnięciu przycisku Home. Postępuj zgodnie z poniższymi krokami, aby naciśnięcie przycisku Home zawsze otwierało tvOS Launcher, a następnie kliknij Kontynuuj.");
+        pl("Step 1: Set tvOS Launcher as Default via Local ADB", "Krok 1: Ustaw tvOS Launcher jako domyślny za pomocą lokalnego ADB");
+        pl("Active — Set as default home launcher", "Aktywne — Ustaw jako domyślny launcher ekranu głównego");
+        pl("Run ROLE_HOME & set-home-activity over Local ADB ›", "Uruchom ROLE_HOME i ustaw aktywność ekranu głównego za pomocą lokalnego ADB ›");
+        pl("Step 2: Disable System Launchers (Google TV / Android TV / OEM)", "Krok 2: Wyłącz systemowe launchery (Google TV / Android TV / OEM)");
+        pl("Step 3: Fix Home Button via Accessibility (Button Mapper)", "Krok 3: Napraw przycisk Home za pomocą dostępności (Button Mapper)");
+        pl("On — Pressing Home launches tvOS Launcher", "Włączone — Naciśnięcie przycisku Home uruchamia tvOS Launcher");
+        pl("Off — Tap to enable Home button remap", "Wyłączone — Stuknij, aby włączyć mapowanie przycisku Home");
+        pl("Step 4: Open Android System Home Settings", "Krok 4: Otwórz ustawienia ekranu głównego systemu Android");
+        pl("Open system selector (if supported by TV) ›", "Otwórz selektor systemu (jeśli jest obsługiwany przez telewizor) ›");
+        pl("Proceed to the next setup step when you are done here", "Przejdź do następnego kroku konfiguracji, gdy skończysz tutaj");
+        pl("Map any button on your remote with Single Tap (1x), Double Tap (2x) and Triple Tap (3x) actions — open the Control Panel, Recent Apps Switcher, or any app.", "Mapuj dowolny przycisk na pilocie za pomocą akcji Pojedyncze stuknięcie (1x), Podwójne stuknięcie (2x) i Potrójne stuknięcie (3x) — otwórz Panel sterowania, Przełącznik ostatnich aplikacji lub dowolną aplikację.");
+        pl("Enable Button Mapper in Accessibility…", "Włącz Button Mapper w dostępności…");
+        pl("Required so mapped buttons work over every app", "Wymagane, aby mapowane przyciski działały w każdej aplikacji");
+        pl("+ Add New Button to Remap…", "+ Dodaj nowy przycisk do mapowania…");
+        pl("Assign Single Tap (1x), Double Tap (2x) & Triple Tap (3x) actions", "Przypisz akcje Pojedyncze stuknięcie (1x), Podwójne stuknięcie (2x) i Potrójne stuknięcie (3x)");
+        pl("You can also configure buttons later in Settings", "Możesz również skonfigurować przyciski później w Ustawieniach");
+        pl("You're All Set", "Jesteś gotowy");
+        pl("Change any of this later in Settings, from the gear in Control Center.", "Zmień dowolne ustawienia później w Ustawieniach, korzystając z ikony koła zębatego w Centrum sterowania.");
+        pl("Go to Home Screen", "Przejdź do ekranu głównego");
+        pl("%s active / %s found ›", "%s aktywne / %s znalezione ›");
+
+        // HOME & Default Launcher & App Context menu
+        pl("Make tvOS Launcher your home screen?", "Ustaw tvOS Launcher jako ekran główny?");
+        pl("Go to Home Screen", "Przejdź do ekranu głównego");
+        pl("The Home button on the remote will open tvOS Launcher.", "Przycisk Home na pilocie otworzy tvOS Launcher.");
+        pl("Make Home Screen", "Ustaw jako ekran główny");
+        pl("Set Default Home Launcher", "Ustaw jako domyślny launcher");
+        pl("Set Default via Local ADB", "Ustaw jako domyślny za pomocą lokalnego ADB");
+        pl("Disable Stock TV Launcher (TCL / Philips / Google TV)", "Wyłącz domyślny launcher TV (TCL / Philips / Google TV)");
+        pl("Enable Home Button Fix (Accessibility Remap)", "Włącz naprawę przycisku Home (Mapowanie dostępności)");
+        pl("Open Android Default Home Settings", "Otwórz domyślne ustawienia ekranu głównego Androida");
+        pl("Other apps", "Inne aplikacje");
+        pl("Open", "Otwórz");
+        pl("Move", "Przenieś");
+        pl("Rename", "Zmień nazwę");
+        pl("Change app icon", "Zmień ikonę aplikacji");
+        pl("Move to Other Apps", "Przenieś do innych aplikacji");
+        pl("Hide", "Ukryj");
+        pl("App Info", "Informacje o aplikacji");
+        pl("Reset Layout", "Resetuj układ");
+
+        // Symbolic keys
+        pl("dash_prayer_times", "Pory modlitw");
+        pl("dash_football", "Mecze");
+        pl("dash_latest_releases", "Najnowsze wydania");
+        pl("weather", "Pogoda");
+        pl("prayer_fajr", "Świt");
+        pl("prayer_sunrise", "Wschód słońca");
+        pl("prayer_dhuhr", "Południe");
+        pl("prayer_asr", "Popołudnie");
+        pl("prayer_maghrib", "Zmierzch");
+        pl("prayer_isha", "Noc");
+        pl("prayer_remaining", "pozostało");
+        pl("prayer_method_label", "Metoda obliczeń");
+        pl("football_loading", "Ładowanie meczów…");
+        pl("football_fav_teams", "Ulubione drużyny");
+        pl("football_no_matches", "Brak zaplanowanych meczów");
+        pl("releases_loading", "Ładowanie zawartości…");
+        pl("weather_updating", "Aktualizacja…");
+        pl("tomorrow_short", "Jutro");
+        pl("tomorrow", "Jutro");
+        pl("now", "Teraz");
+        pl("bm_inputs_overlay", "Nakładka wejść TV (Ekran nakładki)");
+        pl("caffeine_title", "Caffeine (Blokuj tryb uśpienia i tryb otoczenia)");
+        pl("caffeine_desc", "Caffeine odrzuca tryb bezczynności (idle) Androida i blokuje automatyczne włączanie trybu otoczenia na Android TV, utrzymując TV w stanie aktywnym i uniemożliwiając przejście w tryb uśpienia.");
+        pl("cp_bg_mode", "Tło panelu sterowania");
+        pl("cp_bg_blurry", "Rozmyte (Rozmycie bieżącej zawartości)");
+        pl("cp_bg_transparent", "Przezroczyste");
+        pl("next_wallpaper", "Następna tapeta");
+        pl("align_dynamic", "Dynamiczne");
+        pl("align_left", "Lewo");
+        pl("align_center", "Środek");
+        pl("align_right", "Prawo");
+        pl("settings", "Ustawienia");
+        pl("home_settings", "Ustawienia ekranu głównego");
+        pl("Language, weather, scenes, apps and people", "Język, pogoda, sceny, aplikacje i profile");
+        pl("tv_settings", "Ustawienia TV");
+        pl("Wi-Fi, picture, sound and the rest of the TV", "Wi-Fi, obraz, dźwięk i reszta TV");
+        pl("sleep_timer", "Timer uśpienia");
+
+        // Greetings & Weather
+        pl("Good morning", "Dzień dobry");
+        pl("Good afternoon", "Dzień dobry");
+        pl("Good evening", "Dobry wieczór");
+        pl("Good night", "Dobranoc");
+        pl("Clear", "Bezchmurnie");
+        pl("Sunny", "Słonecznie");
+        pl("Mostly Sunny", "Przeważnie słonecznie");
+        pl("Mostly Clear", "Przeważnie czysto");
+        pl("Partly Cloudy", "Częściowo pochmurno");
+        pl("Cloudy", "Pochmurno");
+        pl("Foggy", "Mglisto");
+        pl("Drizzle", "Mżawka");
+        pl("Rain", "Deszcz");
+        pl("Heavy Rain", "Ulewny deszcz");
+        pl("Sleet", "Deszcz ze śniegiem");
+        pl("Snow", "Śnieg");
+        pl("Heavy Snow", "Obfity śnieg");
+        pl("Showers", "Przelotne opady");
+        pl("Thunderstorms", "Burze z piorunami");
+        pl("HOURLY FORECAST", "Prognoza godzinowa");
+        pl("5-DAY FORECAST", "Prognoza 5-dniowa");
+        pl("Humidity ", "Wilgotność ");
+        pl("Humidity", "Wilgotność");
+        pl("Wind ", "Wiatr ");
+        pl("Wind", "Wiatr");
+        pl("Now", "Teraz");
+        pl("Today", "Dzisiaj");
+        pl("Updated", "Zaktualizowano");
+
+        // Overlay setting
+        pl("Audio", "Dźwięk");
+        pl("TV Speakers", "Głośniki TV");
+        pl("Screensaver", "Wygaszacz ekranu");
+        pl("Recent Apps", "Ostatnie aplikacje");
+        pl("No recent apps yet", "Brak ostatnich aplikacji");
+        pl("RAM %s used of %s", "RAM %s używane z %s");
+        pl("Close All", "Zamknij wszystkie");
+        pl("Press ▲ on an app to close it", "Naciśnij ▲ na aplikacji, aby ją zamknąć");
+        pl("Screen off", "Ekran wyłączony");
+        pl("Search apps, movies and shows", "Szukaj aplikacji, filmów i programów");
+        pl("Type to search your apps, settings, movies and shows", "Wpisz, aby wyszukać aplikacje, ustawienia, filmy i programy");
+        pl("Movies & TV", "Filmy i TV");
+
+        // Main UI & Settings Sections
+        pl("Settings", "Ustawienia");
+        pl("Language", "Język");
+        pl("Location", "Lokalizacja");
+        pl("Weather", "Pogoda");
+        pl("Weather and location", "Pogoda i lokalizacja");
+        pl("Look and scenes", "Wygląd i sceny");
+        pl("Appearance and scenes", "Wygląd i sceny");
+        pl("Apps", "Aplikacje");
+        pl("People", "Profile");
+        pl("Button Mapper", "Mapowanie przycisków");
+        pl("Button mapper", "Mapowanie przycisków");
+        pl("Control Panel", "Panel sterowania");
+        pl("Control Panel (Overlay)", "Panel sterowania (Nakładka)");
+        pl("Recent Apps Switcher (Overlay)", "Przełącznik ostatnich aplikacji (Nakładka)");
+        pl("Home & System", "Ekran główny i system");
+        pl("Advanced", "Zaawansowane");
+        pl("Updates", "Aktualizacje");
+        pl("UPDATES", "AKTUALIZACJE");
+        pl("About", "O aplikacji");
+
+
+        // Settings Sections - Appearance
+        pl("Ambient colour themes…", "Motywy kolorów ambient");
+        pl("Prayer calculation method", "Metoda obliczania modlitw");
+        pl("Add favorite football team…", "Dodaj ulubioną drużynę piłkarską");
+        pl("REGION MODE", "TRYB REGIONU");
+        pl("Currently synced to: ", "Aktualnie zsynchronizowano z: ");
+        pl("COUNTRIES (SELECT ONE OR MULTIPLE)", "KRAJE (WYBIERZ JEDEN LUB WIELE)");
+        pl("Selected — press OK to toggle", "Wybrano — naciśnij OK, aby przełączyć");
+        pl("Press OK to include releases from this country", "Naciśnij OK, aby uwzględnić wydania z tego kraju");
+        pl("By default, Most Watched automatically syncs with your selected UI language. Selecting any country above switches to custom multi-country mode.", "Domyślnie Most Watched automatycznie synchronizuje się z wybranym językiem interfejsu. Wybór dowolnego kraju powyżej przełącza na niestandardowy tryb wielokrajowy.");
+        pl("Displayed when no app is focused, when focus is on Settings / non-app elements, or when the focused app has no Continue Watching items.", "Wyświetlane, gdy żadna aplikacja nie jest aktywna, gdy fokus jest na ustawieniach / elementach niebędących aplikacjami lub gdy aktywna aplikacja nie ma elementów Kontynuuj oglądanie.");
+
+        // Settings Sections - Weather
+        pl("WEATHER", "POGODA");
+        pl("Weather on the home screen", "Pogoda na ekranie głównym");
+        pl("Temperature", "Temperatura");
+        pl("Update every", "Aktualizuj co"); // e.g., "Aktualizuj co 15 minut"
+        pl("Weather source", "Źródło pogody"); 
+        pl("Weather from", "Pogoda z");
+        pl("Free forecast service, no account needed", "Bezpłatna prognoza, konto nie jest wymagane");
+        pl("LOCATION", "LOKALIZACJA");
+        pl("Current place", "Aktualne miejsce");
+        pl("Detected automatically", "Wykryto automatycznie");
+        pl("Search for a city or town…", "Wyszukaj miasto lub miejscowość...");
+        pl("Choose City", "Wybierz miasto");
+        pl("City name, e.g. Instanbul", "Nazwa miasta, np. Instanbul");
+        pl("City name, e.g. Instanbul…", "Nazwa miasta, np. Instanbul...");
+        pl("Used for the weather on the home screen and local headlines.", "Używane do pogody na ekranie głównym i lokalnych nagłówków.");
+        pl("°C (Celsius)", "°C (Celsjusz)");
+        pl("°F (Fahrenheit)", "°F (Fahrenheit)");
+
+        // Settings Sections - Apps
+        pl("Hidden apps", "Ukryte aplikacje");
+        pl("Back to Apps", "Powrót do aplikacji");
+        pl("No hidden apps. Hold OK on any app on the home screen dock and choose Hide.", "Brak ukrytych aplikacji. Przytrzymaj OK na dowolnej aplikacji w docku ekranu głównego i wybierz Ukryj.");
+        pl("Reset app order & unhide all", "Resetuj kolejność aplikacji i pokaż wszystkie");
+        pl("Show Continue Watching on Home", "Pokaż opcję Kontynuuj oglądanie na ekranie głównym");
+        pl("Home screen weather shortcut", "Skrót pogody na ekranie głównym");
+        pl("Clear Continue Watching history", "Wyczyść historię Kontynuuj oglądanie");
+        pl("Manage system apps in TV settings…", "Zarządzaj aplikacjami systemowymi w ustawieniach TV");
+        pl("Tip: Hold OK on any app on the home screen dock to move or hide it.", "Wskazówka: Przytrzymaj OK na dowolnej aplikacji w docku ekranu głównego, aby ją przenieść lub ukryć.");
+        pl("Continue Watching on dock", "Kontynuuj oglądanie w docku");
+        pl("Account", "Konto");
+        pl("Not signed in", "Nie zalogowano");
+
+        // Settings Sections - Profiles
+        pl("PEOPLE", "UŻYTKOWNICY");
+        pl("Profile", "Profil");
+        pl("Watching now · OK to switch or rename", "Ogląda teraz · OK, aby przełączyć lub zmienić nazwę");
+        pl("Switch: ", "Przełącz: ");
+        pl("Rename…", "Zmień nazwę...");
+        pl("Rename person", "Zmień nazwę użytkownika");
+        pl("Add a person…", "Dodaj użytkownika...");
+        pl("Add a person", "Dodaj użytkownika");
+        pl("Name", "Nazwa");
+        pl("OPTIONS", "OPCJE");
+        pl("Ask who is watching on wake", "Zapytaj, kto ogląda po włączeniu");
+        pl("Each person keeps their own Keep Watching row and app order.", "Każda osoba ma własny wiersz Kontynuuj oglądanie i kolejność aplikacji.");
+
+        // Settings Sections - Control panel
+        pl("Tip: Blur can't be shown while a video is playing. Android can't blur live video (and DRM video can't be captured), so the video keeps playing behind the panel with a soft shade instead.", "Wskazówka: Rozmycie nie może być wyświetlane podczas odtwarzania wideo. Android nie może rozmywać wideo na żywo (a wideo DRM nie może być przechwycone), więc wideo nadal odtwarzane jest za panelem z miękkim odcieniem.");
+        pl("UNIVERSAL SHORTCUT ACTIONS", "UNIWERSALNE AKCJE SKRÓTÓW");
+        pl("Default (Automatic)", "Domyślne (Automatyczne)");
+        pl(" - Choose Action", "- Wybierz akcję");
+        pl("TARGET ACTION / APPLICATION", "CEL AKCJI / APLIKACJA");
+        pl("Inputs (Control Panel & Dock)", "Wejścia (Panel sterowania i Dock)");
+        pl("CONTROL PANEL ITEMS (SHOW / HIDE)", "ELEMENTY PANELU STEROWANIA (POKAŻ / UKRYJ)");
+        pl("Memory / Recent Apps", "Pamięć / Ostatnie aplikacje");
+        pl("Audio Output", "Wyjście audio");
+        pl("Ambient Mode / Lock Screen", "Tryb ambientowy / Ekran blokady");
+        pl("Power Off / Screen Off", "Wyłączanie / Ekran wyłączony");
+        pl("TV Input Shortcut", "Skrót wejścia TV");
+        pl("Button Mapper Shortcut", "Skrót mapowania przycisków");
+        pl("Settings Shortcut", "Skrót ustawień");
+        pl("Search / Assistant Shortcut", "Skrót wyszukiwania / asystenta");
+        pl("Weather Panel (Current & Tomorrow)", "Panel pogody (Bieżąca i Jutro)");
+        pl("INPUTS APP ON DOCK", "PANEL WEJŚĆ NA DOCKU");
+        pl("Show Inputs app on Dock", "Pokaż panel Wejścia na Docku");
+        pl("Reset Control Panel actions to default", "Resetuj akcje panelu sterowania do domyślnych");
+        pl("Each TV brand uses different package and activity names for Wi-Fi, Bluetooth, Sound, Inputs, and Ambient Mode. You can also choose Lock Screen for Ambient Mode (for TVs without built-in Ambient Mode) and toggle individual Control Panel items on or off.", "Każda marka TV używa różnych nazw pakietów i aktywności dla Wi-Fi, Bluetooth, Dźwięku, Wejść i Trybu ambientowego. Możesz również wybrać Ekran blokady dla Trybu ambientowego (dla telewizorów bez wbudowanego Trybu ambientowego) i włączać lub wyłączać poszczególne elementy panelu sterowania.");
+
+        // Settings Sections - Button mapper
+        pl("ACCESSIBILITY SERVICE", "USŁUGA DOSTĘPNOŚCI");
+        pl("Button Mapper accessibility service", "Usługa dostępności mapowania przycisków");
+        pl("Enable in Accessibility…", "Włącz w Ułatwieniach dostępu…");
+        pl("Fix Home button (Launch tvOS Launcher)", "Napraw przycisk Home (Uruchom tvOS Launcher)");
+        pl("Long-press volume button fix", "Napraw przycisk głośności przy długim naciśnięciu");
+        pl("Volume button fix mode", "Tryb naprawy przycisku głośności");
+        pl("Volume Button Fix Mode", "Tryb naprawy przycisku głośności");
+        pl("Mode 1 — Standard (Default, for most Android TVs & IR remotes)", "Tryb 1 - Standardowy (Domyślny, dla większości telewizorów Android i pilotów IR)");
+        pl("Mode 1 (Standard · Default)", "Tryb 1 (Standardowy · Domyślny)");
+        pl("Mode 2 — HY320 / Projector (AudioService & IR pulse-birst mode)", "Tryb 2 - HY320 / Projektor (tryb AudioService i impulsu IR)");
+        pl("Mode 2 (Hy320 / Projector)", "Tryb 2 (Hy320 / Projektor)");
+        pl("Mode 3 — Onn TV Box (Fast release stop, 0 extra steps on release, ADB & Secure mode)", "Tryb 3 - Onn TV Box (Szybkie zatrzymanie zwolnienia, 0 dodatkowych kroków przy zwolnieniu, tryb ADB i Bezpieczny)");
+        pl("BUTTON REMAPPING", "MAPOWANIE PRZYCISKÓW");
+        pl("Add new button to remap", "Dodaj nowy przycisk do mapowania");
+        pl("Press the button on your remote that you want to remap", "Naciśnij przycisk na pilocie, który chcesz zmapować...");
+        pl("(D-pad navigation, OK and Back are kept for normal navigation.)", "(Nawigacja D-padem, OK i Wstecz są zachowane dla normalnej nawigacji.)");
+        pl("TAP ACTIONS", "AKCJE NACISNIĘCIA");
+        pl("Single Tap (1x)", "Pojedyncze naciśnięcie (1x)");
+        pl("Double Tap (2x)", "Podwójne naciśnięcie (2x)");
+        pl("Triple Tap (3x)", "Potrójne naciśnięcie (3x)");
+        pl("BUILD-IN ACTIONS", "WBUDOWANE AKCJE");
+        pl("None (No action)", "Brak (Brak akcji)");
+        pl("Ambient Mode / StandBy", "Tryb ambientowy / Tryb gotowości");
+        pl("Power Off (Screen Off)", "Wyłącz (Ekran wyłączony)");
+        pl("Send Key Code (Remote / Media / System)…", "Wyślij kod klawisza (Pilot / Media / System)...");
+        pl("Send any Android KeyEvent keycode without 4rd-party apps", "Wyślij dowolny kod klawisza Android KeyEvent bez aplikacji firm trzecich");
+        pl("Assign Single Tap (1x), Double Tap (2x) and Triple Tap (3x) actions for each remote button — such as opening the Control Panel overlay, the Recent Apps Switcher overlay, or any installed app.", "Przypisz akcje Pojedynczego naciśnięcia (1x), Podwójnego naciśnięcia (2x) i Potrójnego naciśnięcia (3x) dla każdego przycisku pilota - na przykład otwieranie nakładki Panelu sterowania, nakładki Przełącznika ostatnich aplikacji lub dowolnej zainstalowanej aplikacji.");
+
+
+        // Settings Sections - Quick settings
+        pl("Quick settings", "Szybkie ustawienia");
+        pl("HOME & PERMISSIONS", "EKRAN GŁÓWNY I UPRAWNIENIA");
+        pl("Default home screen", "Domyślny ekran główny");
+        pl("Set as default…", "Ustaw jako domyślny…");
+        pl("Continue Watching & DND permission", "Uprawnienia Kontynuuj oglądanie i Nie przeszkadzać");
+        pl("Allowed", "Dozwolone");
+        pl("Allow…", "Zezwól…");
+        pl("Navigation click sounds", "Dźwięki kliknięć nawigacji");
+        pl("PRESENTATION & SYSTEM", "PREZENTACJA I SYSTEM");
+        pl("Presentation mode", "Tryb prezentacji");
+        pl("Presentation address & QR code", "Adres prezentacji i kod QR");
+        pl("Turn on first", "Włącz najpierw");
+        pl("Run first-time setup again…", "Uruchom ponownie konfigurację pierwszego uruchomienia…");
+        pl("Open Android TV Settings…", "Otwórz ustawienia Android TV…");
+        pl("BACKUP & RESTORE", "KOPIA ZAPASOWA I PRZYWRACANIE");
+        pl("Backup settings to Download", "Kopia ustawień do pobrania");
+        pl("Restore settings from folder…", "Przywróć ustawienia z folderu…");
+        pl("Choose folder ›", "Wybierz folder ›");
+        pl("DEFAULT LAUNCHER SETUP (TCL / PHILIPS / GOOGLE TV)", "USTAWIENIA DOMYŚLNEGO LAUNCHERA (TCL / PHILIPS / GOOGLE TV)");
+        pl("1. Set tvOS Launcher as Default via Local ADB", "1. Ustaw tvOS Launcher jako domyślny za pomocą lokalnego ADB");
+        pl("Run ROLE_HOME & set-home-activity ›", "Uruchom ROLE_HOME i ustaw aktywność domową ›");
+        pl("Setting Default Launcher…", "Ustawianie domyślnego launchera…");
+        pl("Setting ROLE_HOME and default home activity over Local ADB…", "Ustawianie ROLE_HOME i domyślnej aktywności domowej za pomocą lokalnego ADB…");
+        pl("2. Disable System Launchers (Google TV / Android TV / OEM)", "Wyłącz systemowe launchery (Google TV / Android TV / OEM)");
+        pl("2. Disable System Launchers (Google TV / Android TV / OEM)", "Wyłącz systemowe launchery (Google TV / Android TV / OEM)");
+        pl("3. Fix Home Button via Accessibility (Button Mapper)", "Napraw przycisk Home za pomocą dostępności (Button Mapper)");
+        pl("On — Pressing Home launches tvOS Launcher", "Włączone — Naciśnięcie przycisku Home uruchamia tvOS Launcher");
+        pl("Off — Tap to enable Home button remap", "Wyłączone — Stuknij, aby włączyć mapowanie przycisku Home");
+        pl("Home button fix enabled.", "Naprawa przycisku Home włączona.");
+        pl("Home button fix disabled.", "Naprawa przycisku Home wyłączona.");
+        pl("4. Open Android System Home Settings", "Otwórz ustawienia domowe systemu Android");
+        pl("Open system selector (if supported by TV) ›", "Otwórz selektor systemu (jeśli TV go obsługuje) ›");
+        pl("On TCL and Philips Android 11/12 TVs, the OEM firmware often hides the Android Default Home UI and forces the stock launcher when pressing Home. Disabling the stock launcher (Option 2) or enabling the Home Button Fix (Option 3) guarantees pressing Home always opens tvOS Launcher.", "W przypadku telewizorów TCL i Philips z systemem Android 11/12 oprogramowanie OEM często ukrywa domyślny interfejs Android Home i wymusza użycie standardowego launchera po naciśnięciu przycisku Home. Wyłączenie standardowego launchera (Opcja 2) lub włączenie naprawy przycisku Home (Opcja 3) gwarantuje, że naciśnięcie przycisku Home zawsze otwiera tvOS Launcher.");
+
+
+        // Settings Sections - Advanced
+        pl("ADB & SECURITY MODE", "TRYB ADB I BEZPIECZEŃSTWA");
+        pl("ADB operating mode", "Tryb operacyjny ADB");
+        pl("ADB connection status", "Status połączenia ADB");
+        pl("Pair / Repair ADB connection", "Sparuj / Napraw połączenie ADB");
+        pl("Turn On / Off ADB", "Włącz / Wyłącz ADB");
+        pl("Check permissions", "Sprawdź uprawnienia");
+        pl("Remove / revoke all permissions", "Usuń / cofnij wszystkie uprawnienia");
+        pl("Revoke ›", "Cofnij ›");
+        pl("STARTUP & KEEP ALIVE", "URUCHAMIANIE I UTRZYMYWANIE AKTYWNEGO");
+        pl("Launch automatically on system boot", "Uruchamiaj automatycznie przy starcie systemu");
+        pl("tvOS Launcher will launch immediately on system boot.", "tvOS Launcher uruchomi się natychmiast po starcie systemu");
+        pl("Automatic launch on boot disabled.", "Automatyczne uruchamianie przy starcie systemu wyłączone.");
+        pl("Keep Alive (Auto-repair Accessibility)", "Utrzymuj aktywność (Automatyczna naprawa dostępności)");
+        pl("Caffeine enabled — TV will stay awake and block automatic Ambient / sleep mode.", "Caffeine włączona — TV pozostanie aktywne i zablokuje automatyczny tryb Ambient / uśpienia.");
+        pl("Caffeine disabled.", "Caffeine wyłączona.");
+        pl("Security Note: Keep Alive is enabled by default. In Secure Mode, tvOS Launcher uses WRITE_SECURE_SETTINGS to restore Accessibility directly in-process without touching ADB (even if ADB is enabled on the TV). In Persistent ADB Mode, Keep Alive can also use Local ADB on port 5555.", "Uwaga bezpieczeństwa: Utrzymuj aktywność jest domyślnie włączona. W trybie bezpiecznym tvOS Launcher używa WRITE_SECURE_SETTINGS do przywracania dostępności bezpośrednio w procesie bez dotykania ADB (nawet jeśli ADB jest włączone na TV). W trybie trwałego ADB, Utrzymuj aktywność może również używać lokalnego ADB na porcie 5555.");
+        pl("Choose TV model", "Wybierz model TV");
+        pl("Choose TV model…", "Wybierz model TV...");
+        pl("Tap to detect / select…", "Stuknij, aby wykryć / wybrać…");
+        pl("Debloat status", "Status debloat");
+        pl("Debloat TV…", "Debloat TV…");
+        pl("Not done (Select TV model first)", "Nie wykonano (Najpierw wybierz model TV)");
+        pl(" active", " aktywne");
+        pl(" found", " znaleziono");
+        pl("Disable system launchers…", "Wyłącz systemowe launchery…");
+        pl("Manual debloat (All system apps)…", "Ręczny debloat (Wszystkie aplikacje systemowe)…");
+        pl("Advanced ›", "Zaawansowane ›");
+        pl("Disabled apps backup", "Kopia zapasowa wyłączonych aplikacji");
+        pl("None saved", "Brak zapisanych");
+        pl("Restore", "Przywróć");
+        pl("Restore debloated apps…", "Przywróć usunięte aplikacje…");
+        pl("Ad-blocking Private DNS (AdGuard)", "Blokowanie reklam za pomocą prywatnego DNS (AdGuard)");
+        pl("CleanYourTV (Beta) runs the CleanYourTV debloat profiles directly on your TV over Local ADB without needing a PC. Choose your TV model (or scan by installed system app packages), disable stock launchers or bloatware, and restore them anytime with one tap.", "CleanYourTV (Beta) uruchamia profile debloat CleanYourTV bezpośrednio na Twoim TV przez Local ADB bez potrzeby używania PC. Wybierz model TV (lub zeskanuj według zainstalowanych pakietów aplikacji systemowych), wyłącz stockowe launchery lub bloatware i przywróć je w dowolnym momencie jednym kliknięciem.");
+        pl("Disable system launchers", "Wyłącz systemowe launchery");
+        pl("No stock Android TV / Google TV / OEM launcher packages were detected on this TV.", "Nie wykryto pakietów stockowych launcherów Android TV / Google TV / OEM na tym TV.");
+        pl("ONE-TAP ACTIONS", "JEDNOKLIKOWE AKCJE");
+        pl("Disable All Stock Launchers & Set tvOS Launcher as Home", "Wyłącz wszystkie stockowe launchery i ustaw tvOS Launcher jako domyślny");
+        pl("Disable all ›", "Wyłącz wszystkie ›");
+        pl("System Launchers", "Launchery systemowe");
+        pl("Re-enable All Stock Launchers", "Włącz wszystkie stockowe launchery");
+        pl("Enable all ›", "Włącz wszystkie ›");
+        pl("INSTALLED SYSTEM LAUNCHERS ON THIS TV (%s)", "ZAINSTALOWANE LAUNCHERY SYSTEMOWE NA TYM TV (%s)");
+        pl(" [Enabled — Tap to Disable]", " [Włączone — Stuknij, aby wyłączyć]");
+        pl(" [Disabled — Tap to Enable]", " [Wyłączone — Stuknij, aby włączyć]");
+        pl("Checked items are currently DISABLED. Disabling the stock system launcher (e.g. Google TV Home / LauncherX + setupwraith, Android TV Home, or TCL/Philips OEM Home) forces Android to use tvOS Launcher when pressing the Home key.", "Zaznaczone elementy są obecnie WYŁĄCZONE. Wyłączenie stockowego launchera systemowego (np. Google TV Home / LauncherX + setupwraith, Android TV Home lub TCL/Philips OEM Home) wymusza użycie tvOS Launchera po naciśnięciu klawisza Home.");
+        pl("Manual debloat (All system apps)", "Ręczne usuwanie bloatware (Wszystkie aplikacje systemowe)");
+        pl("🔍 Filter system apps…", "🔍 Filtruj aplikacje systemowe…");
+        pl("Clear filter", "Wyczyść filtr");
+        pl("↻ Refresh system app list", "↻ Odśwież listę aplikacji systemowych");
+        pl(" [Critical System Service — Protected]", " [Krytyczna usługa systemowa — Chronione]");
+        pl(" [Enabled]", " [Włączone]");
+        pl(" [Disabled]", " [Wyłączone]");
+        pl("🛑 Critical System Service", "🛑 Krytyczna usługa systemowa");
+        pl("⚠️ Core System Package", "⚠️ Podstawowy pakiet systemowy");
+        pl("PAGE NAVIGATION", "NAWIGACJA STRON");
+        pl("Next Page", "Następna strona");
+        pl("Previous Page", "Poprzednia strona");
+        pl("App name or package name…", "Nazwa aplikacji lub pakietu…");
+        pl("Filter System Apps", "Filtruj aplikacje systemowe");
+        pl("Filter", "Filtruj");
+        pl("Disabled apps backup", "Kopia zapasowa wyłączonych aplikacji");
+        pl("No disabled packages have been recorded by CleanYourTV yet.", "Żadne wyłączone pakiety nie zostały jeszcze zapisane przez CleanYourTV.");
+        pl("ACTIONS", "AKCJE");
+        pl("All (%s)", "Wszystkie (%s)");
+        pl("Restore all ›", "Przywróć wszystkie ›");
+        pl("SAVED DISABLED PACKAGES (TAP TO RE-ENABLE)", "ZAPISANE WYŁĄCZONE PAKIETY (STUKNIJ, ABY PONOWNIE WŁĄCZYĆ)");
+        pl("Restore debloated apps", "Przywróć usunięte aplikacje");
+        pl("RESTORE OPTIONS", "OPCJE PRZYWRACANIA");
+        pl("Re-enable all packages disabled by CleanYourTV over ADB", "Ponownie włącz wszystkie pakiety wyłączone przez CleanYourTV przez ADB");
+        pl("No saved disabled-app backup was found, and no TV model is selected yet. Choose a TV model first if you want to restore by model profile.", "Nie znaleziono zapisanej kopii zapasowej wyłączonych aplikacji i nie wybrano jeszcze modelu TV. Najpierw wybierz model TV, jeśli chcesz przywrócić według profilu modelu.");
+        pl("Tap to toggle in scene rotation · Long-press or use actions below", "Stuknij, aby przełączać w rotacji sceny · Przytrzymaj lub użyj poniższych akcji");
+        pl("Tap to set as active wallpaper", "Stuknij, aby ustawić jako aktywną tapetę");
+        pl("Added custom wallpaper #%s.", "Dodano niestandardową tapetę #%s.");
+        pl("All disabled (%s)", "Wszystkie wyłączone (%s)");
+        pl("Grant All Permissions via Local ADB", "Nadaj wszystkie uprawnienia przez lokalne ADB");
+        pl("Grant All ›", "Nadaj wszystkie ›");
+        pl("Default Home Screen", "Domyślny ekran główny");
+        pl("Not set", "Nie ustawiono");
+        pl("Button Mapper & Control Panel (Accessibility)", "Mapowanie przycisków i panel sterowania (Dostępność)");
+        pl("Disabled", "Wyłączone");
+        pl("Active", "Aktywne");
+        pl("Continue Watching & DND (Notification Access)", "Kontynuuj oglądanie i DND (Dostęp do powiadomień)");
+        pl("Allowed", "Dozwolone");
+        pl("Not allowed", "Niedozwolone");
+        pl("Wi-Fi Name (Location)", "Nazwa Wi-Fi (Lokalizacja)");
+        pl("Pair now", "Paruj teraz");
+        pl("Secure Mode Active (ADB Not Used · Self-Repair Ready)", "Tryb bezpieczny aktywny (ADB nie używane · Gotowe do samonaprawy)");
+        pl("Secure Mode (Needs One-Time Pair to Grant Permissions)", "Tryb bezpieczny (wymaga jednorazowego sparowania w celu nadania uprawnień)");
+        pl("Connected & Paired (Port 5555 Open)", "Połączono i sparowano (Port 5555 otwarty)");
+        pl("Port 5555 Open · Ready to Pair", "Port 5555 otwarty · Gotowe do sparowania");
+        pl("Paired · ADB Enabled", "Sparowano · ADB włączone");
+        pl("ADB Enabled · Not Paired", "ADB włączone · Nie sparowano");
+        pl("Disconnected (ADB Off)", "Rozłączono (ADB wyłączone)");
+        pl("active", "aktywne");
+
+        // Settings Sections - updates
+        pl("UPDATES", "AKTUALIZACJE");
+        pl("Automatic updates", "Automatyczne aktualizacje");
+        pl("Automatic updates enabled.", "Automatyczne aktualizacje włączone.");
+        pl("Automatic updates disabled.", "Automatyczne aktualizacje wyłączone.");
+        pl("Check for updates", "Sprawdź aktualizacje");
+        pl("Check now ›", "Sprawdź teraz ›");
+        pl("VERSION INFO", "INFORMACJE O WERSJI");
+        pl("Current version", "Aktualna wersja");
+        pl("GitHub release latest version", "Najnowsza wersja na GitHub");
+        pl("Checking…", "Sprawdzanie…");
+        pl("Tap Check for updates", "Stuknij Sprawdź aktualizacje");
+        pl("Checks GitHub Releases (techgenius1/tvOS-Launcher) for the latest APK and installs updates directly on your TV.", "Sprawdza wydania GitHub (techgenius1/tvOS-Launcher) pod kątem najnowszego APK i instaluje aktualizacje bezpośrednio na Twoim TV.");
+
+        // Settings Sections - about
+        pl("APPLICATION", "APLIKACJA");
+        pl("Home screen", "Ekran główny");
+        pl("Developer", "Deweloper");
+        pl("Version", "Wersja");
+        pl("Settings kept", "Ustawienia zapisane");
+        pl("On this TV", "Na tym TV");
+        pl("BACKUP & RESTORE", "KOPIA ZAPASOWA I PRZYWRACANIE");
+        pl("Backup settings to Download", "Kopia ustawień do Pobrania");
+        pl("Restore settings from folder…", "Przywróć ustawienia z folderu…");
+        pl("Choose folder ›", "Wybierz folder ›");
+        pl("Reset settings to defaults", "Przywróć ustawienia domyślne");
+        pl("Reset settings?", "Przywrócić ustawienia domyślne?");
+        pl("This resets look, scenes, clock and language settings back to defaults.", "Przywraca wygląd, sceny, zegar i ustawienia języka do wartości domyślnych.");
+        pl("Cancel", "Anuluj");
+
+        // Look & Scenes
+        pl("LOOK", "WYGLĄD");
+        pl("Night scenes", "Sceny nocne");
+        pl("A big glass clock, scenes taking turns", "Duży szklany zegar, sceny zmieniają się kolejno");
+        pl("Classic", "Klasyczny");
+        pl("One photo and a grid of app banners", "Jedno zdjęcie i siatka banerów aplikacji");
+        pl("HOME DASHBOARD", "PANEL EKRANU GŁÓWNEGO");
+        pl("HOME SCREEN WIDGETS", "WIDŻETY EKRANU GŁÓWNEGO");
+        pl("Home screen widget settings", "Ustawienia widżetów ekranu głównego");
+        pl("Home Dashboard widgets…", "Widżety panelu ekranu głównego…");
+        pl("Home Dashboard", "Panel ekranu głównego");
+        pl("Enable Home Dashboard", "Włącz panel ekranu głównego");
+        pl("Show widgets when selected app has no Continue Watching", "Pokaż widżety, gdy wybrana aplikacja nie ma opcji Kontynuuj oglądanie");
+        pl("DOCK", "DOCK");
+        pl("Dock size", "Rozmiar docka");
+        pl("Show app names", "Pokaż nazwy aplikacji");
+        pl("NIGHT SCENES CLOCK", "ZEGAR SCEN NOCNYCH");
+        pl("CLASSIC CLOCK & WEATHER", "KLASYCZNY ZEGAR I POGODA");
+        pl("Big Clock (Night Scene style)", "Duży zegar (styl sceny nocnej)");
+        pl("Clock", "Zegar");
+        pl("Clock font", "Czcionka zegara");
+        pl("Clock alignment", "Wyrównanie zegara");
+        pl("Default wallpaper clock alignment", "Wyrównanie zegara na domyślnej tapecie");
+        pl("Custom wallpaper clock alignment", "Wyrównanie zegara na niestandardowej tapecie");
+        pl("Top-right weather shortcut", "Skrót pogody w prawym górnym rogu");
+        pl("12 hour", "12 godzin");
+        pl("24 hour", "24 godziny");
+        pl("Left", "Lewo");
+        pl("Center", "Środek");
+        pl("Right", "Prawo");
+        pl("Dynamic", "Dynamiczny");
+        pl("Each scene stays", "Każda scena trwa");
+        pl(" seconds", " sekund");
+        pl("SCENES", "SCENY");
+        pl("Night", "Noc");
+        pl("Golden hour", "Złota godzina");
+        pl("Waterline", "Linia wodna");
+        pl("Fog", "Mgła");
+        pl("Rainforest dawn", "Świt w lesie deszczowym");
+        pl("Custom", "Niestandardowy");
+        pl("CUSTOM WALLPAPER", "NIESTANDARDOWA TAPETA");
+        pl("Custom wallpaper mode", "Tryb niestandardowej tapety");
+        pl("Custom wallpaper settings…", "Ustawienia niestandardowej tapety…");
+        pl("Single / Multi Wallpapers", "Pojedyncza / Wielokrotna Tapeta");
+        pl("Shuffle Folder", "Tasuj folder");
+        pl("Reddit Wallpapers", "Tapety Reddit");
+        pl("Add new wallpaper…", "Dodaj nową tapetę…");
+        pl("Select wallpaper folder…", "Wybierz folder tapet…");
+        pl("Auto-change interval", "Interwał automatycznej zmiany");
+        pl("Add custom subreddit…", "Dodaj niestandardowy subreddit…");
+
+        // Common Controls
+        pl("keep_watching", "Kontynuuj oglądanie");
+        pl("releases_country_setting", "Najczęściej oglądane kraje");
+        pl("releases_country_auto", "Automatycznie (zgodnie z językiem interfejsu)");
+        pl("Most Watched", "Najczęściej oglądane");
+        pl("Most Watched countries", "Najczęściej oglądane kraje");
+        pl("Keep watching", "Kontynuuj oglądanie");
+        pl("Continue Watching", "Kontynuuj oglądanie");
+        pl("More apps", "Więcej aplikacji");
+        pl("More Apps", "Więcej Aplikacji");
+        pl("Fewer apps", "Mniej aplikacji");
+        pl("Inputs", "Wejścia");
+        pl("Home settings", "Ustawienia ekranu głównego");
+        pl("Home Settings", "Ustawienia Ekranu Głównego");
+        pl("TV settings", "Ustawienia TV");
+        pl("TV Settings", "Ustawienia TV");
+        pl("Sleep timer", "Timer uśpienia");
+        pl("Sleep Timer", "Timer Uśpienia");
+        pl("On", "Włączony");
+        pl("Off", "Wyłączony");
+        pl("Active", "Aktywny");
+        pl("Default", "Domyślny");
+        pl("Back", "Wstecz");
+        pl("Cancel", "Anuluj");
+        pl("Save", "Zapisz");
+        pl("Reset", "Resetuj");
+        pl("Add", "Dodaj");
+        pl("Search", "Szukaj");
+        pl("Refresh", "Odśwież");
+        pl("Next", "Dalej");
+        pl("Continue", "Kontynuuj");
+        pl("Connected", "Połączono");
+        pl("Not Connected", "Nie połączono");
+        pl("Memory", "Pamięć");
+        pl("Do Not Disturb", "Nie przeszkadzać");
+        pl("Audio", "Audio");
+        pl("Sound", "Dźwięk");
+        pl("Ambient Mode", "Tryb Ambient");
+        pl("Lock Screen", "Ekran blokady");
+        pl("Power Off", "Wyłącz");
+        pl("Automatic updates", "Automatyczne aktualizacje");
+        pl("Check for updates", "Sprawdź aktualizacje");
+        pl("Current version", "Aktualna wersja");
+        pl("GitHub release latest version", "Najnowsza wersja na GitHub");
+        pl("OK to change, Back to go back", "OK, aby zmienić, Wstecz, aby wrócić");
+        pl("Up and down to browse, OK to change, Back to close", "Góra i dół, aby przeglądać, OK, aby zmienić, Wstecz, aby zamknąć");
+        pl("OK to open  ·  Hold OK to restore  ·  Back to go back", "OK, aby otworzyć  ·  Przytrzymaj OK, aby przywrócić  ·  Wstecz, aby wrócić");
+    }
+
+    private static void ptBr(String en, String br) {
+        LANG_MAPS.get(LANG_PT_BR).put(en, br);
+    }
+
+    private static void initPortugueseBrazil() {
+        ptBr("Settings", "Configurações");
+        ptBr("Home settings", "Configurações da tela inicial");
+        ptBr("Home Settings", "Configurações da Tela Inicial");
+        ptBr("TV settings", "Configurações da TV");
+        ptBr("TV Settings", "Configurações da TV");
+        ptBr("Quick settings", "Configurações rápidas");
+        ptBr("Quick buttons", "Configurações rápidas");
+        ptBr("Language, weather, scenes, apps and people", "Idioma, clima, cenas, aplicativos e pessoas");
+        ptBr("Wi-Fi, picture, sound and the rest of the TV", "Wi-Fi, imagem, som e configurações da TV");
+        ptBr("Apps", "Aplicativos");
+        ptBr("Applications", "Aplicativos");
+        ptBr("More apps", "Mais aplicativos");
+        ptBr("Fewer apps", "Menos aplicativos");
+        ptBr("One photo and a grid of app banners", "Uma foto e uma grade de aplicativos");
+        ptBr("dash_news", "Notícias ao Vivo");
+        ptBr("Live News", "Notícias ao Vivo");
+        ptBr("dash_cricket", "Placar de Críquete ao Vivo");
+        ptBr("Live Cricket Scores", "Placar de Críquete ao Vivo");
+        ptBr("dash_top_media", "Melhores Filmes e Séries");
+        ptBr("Top Movies & Series", "Melhores Filmes e Séries");
+        ptBr("dash_latest_releases", "Mais Assistidos");
+        ptBr("Most Watched", "Mais Assistidos");
+        ptBr("Most Watched countries", "Países de Mais Assistidos");
+        ptBr("Live News country", "País das Notícias ao Vivo");
+        ptBr("news_country_setting", "País das Notícias ao Vivo");
+        ptBr("news_country_auto", "Automático (Sincronizar com o idioma)");
+        ptBr("releases_country_auto", "Automático (Sincronizar com o idioma)");
+        ptBr("Automatic (Sync with UI language)", "Automático (Sincronizar com o idioma)");
+        ptBr("Loading titles…", "Carregando títulos…");
+        ptBr("releases_loading", "Carregando títulos…");
+        ptBr("Loading matches…", "Carregando partidas…");
+        ptBr("football_loading", "Carregando partidas…");
+        ptBr("Updating…", "Atualizando…");
+        ptBr("weather_updating", "Atualizando…");
+        ptBr("Continue Watching", "Continuar Assistindo");
+        ptBr("Keep watching", "Continuar assistindo");
+        ptBr("keep_watching", "Continuar assistindo");
+        ptBr("Recent Apps", "Aplicativos Recentes");
+        ptBr("No recent apps yet", "Nenhum aplicativo recente ainda");
+        ptBr("Press ▲ on an app to close it", "Pressione ▲ em um aplicativo para fechá-lo");
+        ptBr("Persistent ADB Mode Required", "Modo ADB Persistente Necessário");
+        ptBr("Open Settings", "Abrir Configurações");
+        ptBr("Close", "Fechar");
+        ptBr("Show on Home Screen", "Mostrar na Tela Inicial");
+        ptBr("Control Panel background", "Fundo do Painel de Controle");
+        ptBr("cp_bg_mode", "Fundo do Painel de Controle");
+        ptBr("Blurry (Current content blur)", "Desfocado (Desfoque do conteúdo atual)");
+        ptBr("cp_bg_blurry", "Desfocado (Desfoque do conteúdo atual)");
+        ptBr("Transparent", "Transparente");
+        ptBr("cp_bg_transparent", "Transparente");
+        ptBr("Next Wallpaper", "Próximo Papel de Parede");
+        ptBr("next_wallpaper", "Próximo Papel de Parede");
+        ptBr("Sleep Timer", "Temporizador de Desligamento");
+        ptBr("sleep_timer", "Temporizador de Desligamento");
+        ptBr("Sleep timer", "Temporizador de desligamento");
+        ptBr("Screen", "Tela Inicial");
+        ptBr("Home Screen", "Tela Inicial");
+        ptBr("Download", "Baixar");
+        ptBr("Download CleanYourTV", "Baixar CleanYourTV");
+        ptBr("Re-download CleanYourTV", "Baixar CleanYourTV novamente");
+        ptBr("Uninstall", "Desinstalar");
+        ptBr("Uninstall tvOS Launcher", "Desinstalar tvOS Launcher");
+        ptBr("Updates", "Atualizações");
+        ptBr("UPDATES", "ATUALIZAÇÕES");
+        ptBr("Automatic updates", "Atualizações automáticas");
+        ptBr("Check for updates", "Verificar atualizações");
+        ptBr("Current version", "Versão atual");
+        ptBr("Refresh", "Atualizar");
+        ptBr("Search", "Pesquisar");
+        ptBr("Foggy", "Neblina");
+        ptBr("Thunderstorms", "Tempestades");
+        ptBr("Sleet", "Chuva congelante");
+        ptBr("On", "Ativado");
+        ptBr("Off", "Desativado");
+        ptBr("Enabled", "Ativado");
+        ptBr("Disabled", "Desativado");
+        ptBr("Enable", "Ativar");
+        ptBr("Disable", "Desativar");
+        ptBr("Cancel", "Cancelar");
+        ptBr("Delete", "Excluir");
+        ptBr("Remove", "Remover");
+        ptBr("Save", "Salvar");
+        ptBr("Back", "Voltar");
+        ptBr("Next", "Próximo");
+        ptBr("Done", "Concluído");
+        ptBr("Not done", "Não concluído");
+        ptBr("Selected", "Selecionado");
+        ptBr("REGION MODE", "MODO DE REGIÃO");
+        ptBr("COUNTRY", "PAÍS");
+        ptBr("Currently synced to: ", "Sincronizado atualmente com: ");
+        ptBr("Press OK to select this country", "Pressione OK para selecionar este país");
+        ptBr("WIDGET SETTINGS", "CONFIGURAÇÕES DE WIDGETS");
     }
 
     private I18n() { }
 
     public static String detectSystemLang(Context c) {
-        String raw = null;
+        Locale loc = null;
         try {
             if (c != null && c.getResources() != null && c.getResources().getConfiguration() != null) {
-                android.os.LocaleList locales = c.getResources().getConfiguration().getLocales();
-                if (locales != null && !locales.isEmpty()) {
-                    raw = locales.get(0).getLanguage();
+                if (android.os.Build.VERSION.SDK_INT >= 24) {
+                    android.os.LocaleList locales = c.getResources().getConfiguration().getLocales();
+                    if (locales != null && !locales.isEmpty()) {
+                        loc = locales.get(0);
+                    }
+                } else {
+                    @SuppressWarnings("deprecation")
+                    Locale confLoc = c.getResources().getConfiguration().locale;
+                    loc = confLoc;
                 }
             }
         } catch (Throwable ignored) {
         }
-        if (raw == null || raw.isEmpty()) {
-            raw = Locale.getDefault().getLanguage();
+        if (loc == null) {
+            loc = Locale.getDefault();
         }
+        String raw = loc != null ? loc.getLanguage() : null;
         if (raw == null || raw.isEmpty()) {
             return LANG_EN;
         }
@@ -1524,6 +2375,11 @@ public final class I18n {
         int sep = Math.max(code.indexOf('-'), code.indexOf('_'));
         if (sep > 0) {
             code = code.substring(0, sep);
+        }
+        // Older Android/Java versions report Hebrew with the legacy code "iw".
+        if ("iw".equals(code)) code = LANG_HE;
+        if (LANG_PT.equals(code) && loc != null && "BR".equalsIgnoreCase(loc.getCountry())) {
+            return LANG_PT_BR;
         }
         return SUPPORTED.contains(code) ? code : LANG_EN;
     }
@@ -1583,10 +2439,13 @@ public final class I18n {
             case LANG_IT: return Locale.forLanguageTag("it-IT");
             case LANG_RU: return Locale.forLanguageTag("ru-RU");
             case LANG_PT: return Locale.forLanguageTag("pt-PT");
+            case LANG_PT_BR: return Locale.forLanguageTag("pt-BR");
+            case LANG_PL: return Locale.forLanguageTag("pl-PL");
             case LANG_AR: return Locale.forLanguageTag("ar-SA");
             case LANG_JA: return Locale.forLanguageTag("ja-JP");
             case LANG_ZH: return Locale.forLanguageTag("zh-CN");
             case LANG_KO: return Locale.forLanguageTag("ko-KR");
+            case LANG_HE: return Locale.forLanguageTag("he-IL");
             default: return Locale.US;
         }
     }
@@ -1598,6 +2457,13 @@ public final class I18n {
         if (LANG_EN.equals(lang)) return en;
         if (LANG_TR.equals(lang)) return tr != null ? tr : en;
         return translateOther(lang, en);
+    }
+
+    /** Returns a localized string with format arguments applied using the active language locale. */
+    public static String s(Context c, String en, String tr, Object... args) {
+        String localized = s(c, en, tr);
+        if (args == null || args.length == 0) return localized;
+        return String.format(locale(c), localized, args);
     }
 
     /** Translates a key using the active language dictionary. */
@@ -1623,20 +2489,31 @@ public final class I18n {
         return enKey;
     }
 
+    /** Translates every key of an array (for dialogs that take a String[]). */
+    public static String[] tAll(Context c, String[] enKeys) {
+        String[] out = new String[enKeys.length];
+        for (int i = 0; i < enKeys.length; i++) out[i] = t(c, enKeys[i]);
+        return out;
+    }
+
     private static String translateOther(String lang, String en) {
         Map<String, String> map = LANG_MAPS.get(lang);
         if (map != null) {
             String direct = map.get(en);
             if (direct != null) return direct;
         }
+        if (LANG_HE.equals(lang)) {
+            String dyn = I18nHe.dynamic(en);
+            if (dyn != null) return dyn;
+        }
         // Dynamic pattern translations
         if (en.endsWith("% used · Recent Apps") && map != null) {
             String num = en.substring(0, en.length() - "% used · Recent Apps".length());
-            return num + "% · " + map.getOrDefault("Recent Apps", "Recent Apps");
+            return num + "% · " + mapGet(map, "Recent Apps", "Recent Apps");
         }
         if (en.endsWith("% used · Clean") && map != null) {
             String num = en.substring(0, en.length() - "% used · Clean".length());
-            return num + "% · " + map.getOrDefault("Clean", "Clean");
+            return num + "% · " + mapGet(map, "Clean", "Clean");
         }
         if (en.endsWith(" min left")) {
             String num = en.substring(0, en.length() - " min left".length());
@@ -1645,22 +2522,27 @@ public final class I18n {
         if (en.startsWith("Move ") && map != null) {
             String rest = en.substring("Move ".length());
             if (!rest.equals("left in dock") && !rest.equals("right in dock")) {
-                return map.getOrDefault("Move", "Move") + " " + rest;
+                return mapGet(map, "Move", "Move") + " " + rest;
             }
         }
         if (en.startsWith("Switch to ") && map != null) {
             String rest = en.substring("Switch to ".length());
-            return map.getOrDefault("Switch", "Switch") + ": " + rest;
+            return mapGet(map, "Switch", "Switch") + ": " + rest;
         }
         if (en.startsWith("Done (") && en.endsWith(" apps disabled)") && map != null) {
             String num = en.substring("Done (".length(), en.length() - " apps disabled)".length());
-            return map.getOrDefault("Done", "Done") + " (" + num + " " + map.getOrDefault("apps", "apps") + ")";
+            return mapGet(map, "Done", "Done") + " (" + num + " " + mapGet(map, "apps", "apps") + ")";
         }
         if (en.startsWith("Not done (") && en.endsWith(" disabled)") && map != null) {
             String ratio = en.substring("Not done (".length(), en.length() - " disabled)".length());
-            return map.getOrDefault("Not done", "Not done") + " (" + ratio + ")";
+            return mapGet(map, "Not done", "Not done") + " (" + ratio + ")";
         }
         return en;
+    }
+
+    private static String mapGet(Map<String, String> map, String key, String def) {
+        String v = map != null ? map.get(key) : null;
+        return v != null ? v : def;
     }
 
     /** Formats the date line above the scene clock according to the active language. */
@@ -1676,13 +2558,18 @@ public final class I18n {
                 return new SimpleDateFormat("M月d日 EEEE", loc).format(date);
             case LANG_KO:
                 return new SimpleDateFormat("M월 d일 EEEE", loc).format(date);
+            case LANG_HE:
+                return new SimpleDateFormat("EEEE, d \u05d1MMMM", loc).format(date);
             case LANG_DE:
                 return new SimpleDateFormat("EEEE, d. MMMM", loc).format(date);
+            case LANG_PT_BR:
+                return new SimpleDateFormat("EEEE, d 'de' MMMM", loc).format(date);
             case LANG_SV:
             case LANG_ES:
             case LANG_FR:
             case LANG_IT:
             case LANG_PT:
+            case LANG_PL:
             case LANG_RU:
             case LANG_HI:
             case LANG_AR:
@@ -1692,9 +2579,76 @@ public final class I18n {
         }
     }
 
+    /** True when the active language is written right to left and the UI should be mirrored. */
+    public static boolean isRtl(Context c) {
+        String lang = getLang(c);
+        return LANG_HE.equals(lang) || LANG_AR.equals(lang);
+    }
+
+    /**
+     * Wraps an activity's base context so its layout direction follows the in-app language
+     * (not the system locale). Dialogs created from the activity inherit it.
+     */
+    public static Context wrap(Context base) {
+        if (base == null) return null;
+        try {
+            android.content.res.Configuration conf =
+                    new android.content.res.Configuration(base.getResources().getConfiguration());
+            conf.setLayoutDirection(isRtl(base) ? locale(base) : Locale.US);
+            return base.createConfigurationContext(conf);
+        } catch (Throwable t) {
+            return base;
+        }
+    }
+
+    /** Applies the in-app reading direction to a view tree (used for overlays and windows). */
+    public static void applyDirection(Context c, android.view.View root) {
+        if (root == null) return;
+        boolean rtl = isRtl(c);
+        root.setLayoutDirection(rtl ? android.view.View.LAYOUT_DIRECTION_RTL : android.view.View.LAYOUT_DIRECTION_LTR);
+        root.setTextDirection(rtl ? android.view.View.TEXT_DIRECTION_ANY_RTL : android.view.View.TEXT_DIRECTION_FIRST_STRONG);
+        if (rtl) {
+            // Rows are built and rebuilt in code: keep start-aligned text on the right edge after every layout,
+            // so Latin-only lines (app names, percentages) line up with the Hebrew ones.
+            final android.view.View r = root;
+            root.getViewTreeObserver().addOnGlobalLayoutListener(() -> alignToStart(r));
+        }
+    }
+
+    private static void alignToStart(android.view.View v) {
+        if (v instanceof android.widget.TextView) {
+            android.widget.TextView t = (android.widget.TextView) v;
+            int h = t.getGravity() & android.view.Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK;
+            if (t.getTextAlignment() == android.view.View.TEXT_ALIGNMENT_GRAVITY
+                    && (h == android.view.Gravity.START || h == android.view.Gravity.LEFT)) {
+                // Gravity (not textAlignment) so TextView rebuilds its cached layout right away.
+                t.setGravity((t.getGravity() & ~android.view.Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK) | android.view.Gravity.RIGHT);
+            }
+        } else if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) alignToStart(g.getChildAt(i));
+        }
+    }
+
+    /** Keeps a view tree left-to-right (Home screen layout) while Hebrew text still reads right to left. */
+    public static void keepLtr(Context c, android.view.View root) {
+        if (root == null) return;
+        root.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_LTR);
+        root.setTextDirection(isRtl(c) ? android.view.View.TEXT_DIRECTION_ANY_RTL : android.view.View.TEXT_DIRECTION_FIRST_STRONG);
+    }
+
     /** Translates default profile names ("Person 1", "Default", "Kids") while preserving custom names. */
     public static String profileName(Context c, String name) {
         if (name == null) return "";
+        if (LANG_HE.equals(getLang(c))) {
+            if (name.equals("Default") || name.equals("Varsay\u0131lan")) return "\u05d1\u05e8\u05d9\u05e8\u05ea \u05de\u05d7\u05d3\u05dc";
+            if (name.startsWith("Person ")) return "\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc " + name.substring("Person ".length());
+            if (name.startsWith("Ki\u015fi ")) return "\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc " + name.substring("Ki\u015fi ".length());
+            if (name.startsWith("Profile ")) return "\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc " + name.substring("Profile ".length());
+            if (name.startsWith("Profil ")) return "\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc " + name.substring("Profil ".length());
+            if (name.equals("Kids") || name.equals("\u00c7ocuklar")) return "\u05d9\u05dc\u05d3\u05d9\u05dd";
+            return name;
+        }
         if (isTr(c)) {
             if (name.equals("Default")) return "Varsayılan";
             if (name.startsWith("Person ")) return "Kişi " + name.substring("Person ".length());

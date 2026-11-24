@@ -175,6 +175,11 @@ public class SettingsActivity extends Activity {
     }
 
     @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(I18n.wrap(base));
+    }
+
+    @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Clicks.init(this);
@@ -230,8 +235,17 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    /** Forward arrow that points the right way for the reading direction. */
+    private String chev() {
+        return I18n.isRtl(this) ? "\u2039" : "\u203a";
+    }
+
     private String tr(String en, String trStr) {
         return I18n.s(this, en, trStr);
+    }
+
+    private String tr(String en, String trStr, Object... args) {
+        return I18n.s(this, en, trStr, args);
     }
 
     private int u(float dp) {
@@ -273,7 +287,7 @@ public class SettingsActivity extends Activity {
         columns.setOrientation(LinearLayout.HORIZONTAL);
         columns.setClipChildren(false);
         columns.setClipToPadding(false);
-        columns.setPadding(u(44), u(28), u(48), u(22));
+        columns.setPaddingRelative(u(44), u(28), u(48), u(22));
         root.addView(columns, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -283,7 +297,7 @@ public class SettingsActivity extends Activity {
         sideCol.setClipChildren(false);
         sideCol.setClipToPadding(false);
         LinearLayout.LayoutParams sideLp = new LinearLayout.LayoutParams(u(288), ViewGroup.LayoutParams.MATCH_PARENT);
-        sideLp.rightMargin = u(26);
+        sideLp.setMarginEnd(u(26));
         columns.addView(sideCol, sideLp);
 
         sideTitleView = new TextView(this);
@@ -295,7 +309,7 @@ public class SettingsActivity extends Activity {
         sideTitleView.setSingleLine(true);
         LinearLayout.LayoutParams stLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        stLp.leftMargin = u(16);
+        stLp.setMarginStart(u(16));
         stLp.topMargin = u(10);
         stLp.bottomMargin = u(16);
         sideCol.addView(sideTitleView, stLp);
@@ -304,7 +318,7 @@ public class SettingsActivity extends Activity {
         sideList.setOrientation(LinearLayout.VERTICAL);
         sideList.setClipChildren(false);
         sideList.setClipToPadding(false);
-        sideList.setPadding(u(8), u(4), u(8), u(8));
+        sideList.setPaddingRelative(u(8), u(4), u(8), u(8));
         sideCol.addView(sideList, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -325,7 +339,7 @@ public class SettingsActivity extends Activity {
         mainHeadView.setSingleLine(true);
         LinearLayout.LayoutParams mhLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        mhLp.leftMargin = u(16);
+        mhLp.setMarginStart(u(16));
         mhLp.topMargin = u(14);
         mhLp.bottomMargin = u(12);
         mainCol.addView(mainHeadView, mhLp);
@@ -335,13 +349,13 @@ public class SettingsActivity extends Activity {
         scroller.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroller.setClipChildren(true);
         scroller.setClipToPadding(true);
-        scroller.setPadding(0, 0, 0, 0);
+        scroller.setPaddingRelative(0, 0, 0, 0);
 
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         list.setClipChildren(false);
         list.setClipToPadding(false);
-        list.setPadding(u(18), u(8), u(18), u(28));
+        list.setPaddingRelative(u(18), u(8), u(18), u(28));
         scroller.addView(list, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         mainCol.addView(scroller, new LinearLayout.LayoutParams(
@@ -358,10 +372,10 @@ public class SettingsActivity extends Activity {
         msgBg.setColor(0xD8181A24);
         msgBg.setStroke(Math.max(1, u(1)), 0x338FD3FF);
         msgView.setBackground(msgBg);
-        msgView.setPadding(u(14), u(6), u(14), u(6));
+        msgView.setPaddingRelative(u(14), u(6), u(14), u(6));
         LinearLayout.LayoutParams msgLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        msgLp.leftMargin = u(18);
+        msgLp.setMarginStart(u(18));
         msgLp.topMargin = u(6);
         mainCol.addView(msgView, msgLp);
 
@@ -375,13 +389,14 @@ public class SettingsActivity extends Activity {
         hintBg.setColor(0xD916161F);
         hintBg.setStroke(Math.max(1, u(1)), 0x26FFFFFF);
         hintView.setBackground(hintBg);
-        hintView.setPadding(u(14), u(7), u(14), u(7));
+        hintView.setPaddingRelative(u(14), u(7), u(14), u(7));
         LinearLayout.LayoutParams hintLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hintLp.leftMargin = u(18);
+        hintLp.setMarginStart(u(18));
         hintLp.topMargin = u(8);
         mainCol.addView(hintView, hintLp);
 
+        I18n.applyDirection(this, root);
         setContentView(root);
     }
 
@@ -493,6 +508,19 @@ public class SettingsActivity extends Activity {
         });
     }
 
+    public static void clearPrewarmCache() {
+        Bitmap backdrop = sCachedBackdropBmp;
+        sCachedBackdropBmp = null;
+        sCachedBackdropKey = null;
+        if (backdrop != null && !backdrop.isRecycled()) {
+            backdrop.recycle();
+        }
+        for (Bitmap b : SCENE_THUMB_CACHE.values()) {
+            if (b != null && !b.isRecycled()) b.recycle();
+        }
+        SCENE_THUMB_CACHE.clear();
+    }
+
     private void buildSidebarRows() {
         sideList.removeAllViews();
         sideRowViews.clear();
@@ -517,7 +545,7 @@ public class SettingsActivity extends Activity {
             row.setClipChildren(false);
             row.setClipToPadding(false);
             row.setMinimumHeight(u(35));
-            row.setPadding(u(7), u(4), u(14), u(4));
+            row.setPaddingRelative(u(7), u(4), u(14), u(4));
 
             GradientDrawable pillBg = new GradientDrawable();
             pillBg.setCornerRadius(u(12));
@@ -538,7 +566,7 @@ public class SettingsActivity extends Activity {
             iconBox.addView(iconIv, new FrameLayout.LayoutParams(iconGlyphSz, iconGlyphSz, Gravity.CENTER));
 
             LinearLayout.LayoutParams ibLp = new LinearLayout.LayoutParams(iconBoxSz, iconBoxSz);
-            ibLp.rightMargin = u(11);
+            ibLp.setMarginEnd(u(11));
             row.addView(iconBox, ibLp);
 
             TextView label = new TextView(this);
@@ -570,11 +598,24 @@ public class SettingsActivity extends Activity {
                 } else {
                     updateSidebarStyles();
                 }
-                v.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                        .setDuration(160).start();
             });
 
-            row.setOnClickListener(v -> focusFirstRow());
+            // FORK PATCH (mouse/touch): in touch mode a click never gives the row
+            // focus, so the OnFocusChangeListener above doesn't fire and the pane
+            // never switches. Select (or reset) the section explicitly here.
+            row.setOnClickListener(v -> {
+                boolean sectionChanged = !secKey.equals(currentSection)
+                        || showingHiddenApps || activeSubMenu != null;
+                if (sectionChanged) {
+                    showingHiddenApps = false;
+                    activeSubMenu = null;
+                    subMenuStack.clear();
+                    selectSection(secKey, true, ADVANCED.equals(secKey) ? 1 : 0);
+                    updateHintText(false);
+                } else {
+                    focusFirstRow();
+                }
+            });
 
             LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -596,7 +637,7 @@ public class SettingsActivity extends Activity {
         }
         sideList.removeCallbacks(pendingSidebarRebuild);
         pendingSidebarRebuildScheduled = true;
-        sideList.postDelayed(pendingSidebarRebuild, 32);
+        sideList.postDelayed(pendingSidebarRebuild, 140);
     }
 
     private void flushPendingSidebarRebuild() {
@@ -670,7 +711,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void focusFirstRow() {
-        focusRowAtIndex(0);
+        focusRowAtIndex(ADVANCED.equals(currentSection) && activeSubMenu == null ? 1 : 0);
     }
 
     private void focusRowAtIndex(int targetIdx) {
@@ -867,7 +908,14 @@ public class SettingsActivity extends Activity {
                     sub,
                     code.equals(cur),
                     () -> {
+                        boolean wasRtl = I18n.isRtl(this);
                         I18n.setLang(this, code);
+                        if (wasRtl != I18n.isRtl(this)) {
+                            // Reading direction changed: rebuild the screen so the whole layout flips.
+                            getIntent().putExtra("page", "language");
+                            recreate();
+                            return;
+                        }
                         updateSidebarTranslations();
                         selectSection(LANGUAGE, true, idx);
                     });
@@ -885,13 +933,14 @@ public class SettingsActivity extends Activity {
                     Weather.changed(this);
                 });
         row(tr("Temperature", "Sıcaklık birimi"), () -> {
-            String u = Weather.prefs(this).getString(Weather.K_UNITS, "c");
+            String u = Weather.units(this);
             return u.equals("f") ? "°F (Fahrenheit)" : "°C (Celsius)";
         }, () -> {
-            String cur = Weather.prefs(this).getString(Weather.K_UNITS, "c");
+            String cur = Weather.units(this);
             String next = "f".equals(cur) ? "c" : "f";
             Weather.prefs(this).edit().putString(Weather.K_UNITS, next).apply();
             Weather.changed(this);
+            Weather.refresh(this, true, null);
         });
         row(tr("Update every", "Güncelleme sıklığı"),
                 () -> Weather.refreshMinutes(this) + tr(" minutes", " dakika"),
@@ -915,7 +964,7 @@ public class SettingsActivity extends Activity {
                 isManual ? tr("Set manually", "Elle ayarlandı") : tr("Detected automatically", "Otomatik algılandı"));
 
         row(tr("Search for a city or town…", "Şehir veya ilçe ara…"),
-                () -> isManual ? city : "›",
+                () -> isManual ? city : chev(),
                 this::searchCity);
 
         if (isManual) {
@@ -966,19 +1015,31 @@ public class SettingsActivity extends Activity {
                 () -> (HomeDashboard.isEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı")) + "  ›",
                 () -> openSubMenu("home_dashboard"));
 
+        section(tr("DOCK", "DOCK"));
+        row(tr("Dock size", "Dock boyutu"),
+                () -> Scenes.dockScaleLabel(this),
+                () -> openSubMenu("dock_size"));
+        row(tr("Dock rows", "Dock satır sayısı"),
+                () -> Scenes.dockRowsLabel(this),
+                () -> {
+                    Scenes.cycleDockRows(this);
+                    refreshAll();
+                });
+        row(tr("Show app names", "Uygulama adlarını göster"),
+                () -> Scenes.isDockNamesShown(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                () -> {
+                    Scenes.setDockNamesShown(this, !Scenes.isDockNamesShown(this));
+                    refreshAll();
+                });
+
         if (scenesLook) {
-            section(tr("DOCK", "DOCK"));
-            row(tr("Dock size", "Dock boyutu"),
-                    () -> Scenes.dockScaleLabel(this),
-                    () -> openSubMenu("dock_size"));
-            row(tr("Show app names", "Uygulama adlarını göster"),
-                    () -> Scenes.isDockNamesShown(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+            section(tr("NIGHT SCENES CLOCK", "GECE SAHNELERİ SAATİ"));
+            row(tr("Small clock", "Küçük saat"),
+                    () -> Scenes.isSmallClockEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
                     () -> {
-                        Scenes.setDockNamesShown(this, !Scenes.isDockNamesShown(this));
+                        Scenes.setSmallClockEnabled(this, !Scenes.isSmallClockEnabled(this));
                         refreshAll();
                     });
-
-            section(tr("NIGHT SCENES CLOCK", "GECE SAHNELERİ SAATİ"));
             row(tr("Clock", "Saat"),
                     () -> Scenes.isClock24h(this) ? tr("24 hour", "24 saat") : tr("12 hour", "12 saat"),
                     () -> {
@@ -1007,7 +1068,7 @@ public class SettingsActivity extends Activity {
                         });
             }
             row(tr("Each scene stays", "Her sahne süresi"),
-                    () -> Scenes.getStaySeconds(this) + tr(" seconds", " saniye"),
+                    () -> Scenes.getStayIntervalLabel(this),
                     () -> {
                         Scenes.cycleStaySeconds(this);
                         refreshAll();
@@ -1071,6 +1132,12 @@ public class SettingsActivity extends Activity {
                             SceneHome.setWeatherShortcutEnabled(this, !SceneHome.isWeatherShortcutEnabled(this));
                             refreshAll();
                         });
+                row(tr("Top-right search shortcut", "Sağ üst arama kısayolu"),
+                        () -> SceneHome.isSearchShortcutEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                        () -> {
+                            SceneHome.setSearchShortcutEnabled(this, !SceneHome.isSearchShortcutEnabled(this));
+                            refreshAll();
+                        });
             } else {
                 row(tr("Clock", "Saat"),
                         () -> Scenes.isClock24h(this) ? tr("24 hour", "24 saat") : tr("12 hour", "12 saat"),
@@ -1128,7 +1195,7 @@ public class SettingsActivity extends Activity {
                 () -> {
                     Set<String> hidden = Profiles.homePrefs(this).getStringSet(MainActivity.PREF_HIDDEN, Collections.emptySet());
                     int count = hidden != null ? hidden.size() : 0;
-                    return (count > 0 ? count + "  " : "") + "›";
+                    return (count > 0 ? count + "  " : "") + chev();
                 },
                 () -> {
                     showingHiddenApps = true;
@@ -1158,6 +1225,13 @@ public class SettingsActivity extends Activity {
                     SceneHome.setWeatherShortcutEnabled(this, next);
                     refreshAll();
                 });
+        row(tr("Home screen search shortcut", "Ana ekranda arama kısayolu"),
+                () -> SceneHome.isSearchShortcutEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                () -> {
+                    boolean next = !SceneHome.isSearchShortcutEnabled(this);
+                    SceneHome.setSearchShortcutEnabled(this, next);
+                    refreshAll();
+                });
         row(tr("Clear Continue Watching history", "İzlemeye Devam Et geçmişini temizle"),
                 () -> "",
                 () -> {
@@ -1165,7 +1239,7 @@ public class SettingsActivity extends Activity {
                     showStatusMsg(tr("Continue Watching cleared.", "İzlemeye Devam Et geçmişi temizlendi."));
                 });
         row(tr("Manage system apps in TV settings…", "TV ayarlarında uygulamaları yönet…"),
-                () -> "›",
+                () -> chev(),
                 () -> Suggestions.start(this, new Intent(Settings.ACTION_APPLICATION_SETTINGS)));
         infoNote(tr("Tip: Hold OK on any app on the home screen dock to move or hide it.",
                 "İpucu: Ana ekran dock'undaki herhangi bir uygulamayı taşımak veya gizlemek için OK tuşuna basılı tutun."));
@@ -1183,7 +1257,104 @@ public class SettingsActivity extends Activity {
                     () -> cloud.isSignedIn() ? tr("Signed in · Sign out", "Giriş yapıldı · Çıkış yap")
                             : tr("Not signed in", "Giriş yapılmadı"),
                     () -> confirmWatchSignOut(cloud));
+            if (cloud instanceof NuvioCloud) {
+                row(tr("Apps using Nuvio", "Nuvio kullanan uygulamalar"),
+                        () -> {
+                            int n = NuvioCloud.linkedApps(this).size();
+                            return (n > 0 ? "+" + n + "  " : "") + "›";
+                        },
+                        () -> openSubMenu("nuvio_apps"));
+            }
         }
+    }
+
+    /**
+     * Nuvio forks (other package names, same Nuvio account) the user links to Nuvio's continue
+     * watching. The official com.nuvio.* app is built in; nothing else is linked automatically,
+     * but apps that look like Nuvio (name or nuvio:// links) are listed first as suggestions.
+     */
+    private void subMenuNuvioApps() {
+        mainHeadView.setText(tr("Apps using Nuvio", "Nuvio kullanan uygulamalar"));
+        backSubMenuRow();
+        PackageManager pm = getPackageManager();
+
+        // Launchable apps: package -> label.
+        Map<String, String> apps = new HashMap<>();
+        for (String cat : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            List<ResolveInfo> ris;
+            try {
+                ris = pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(cat), 0);
+            } catch (Throwable t) {
+                ris = Collections.emptyList();
+            }
+            for (ResolveInfo ri : ris) {
+                if (ri.activityInfo == null) continue;
+                String pkg = ri.activityInfo.packageName;
+                if (pkg == null || apps.containsKey(pkg)) continue;
+                CharSequence l = ri.activityInfo.applicationInfo != null ? ri.activityInfo.applicationInfo.loadLabel(pm) : null;
+                apps.put(pkg, l != null && l.length() > 0 ? l.toString().trim() : pkg);
+            }
+        }
+
+        // Apps that open nuvio:// links: forks that kept Nuvio's deep links.
+        Set<String> nuvioLinks = new HashSet<>();
+        try {
+            for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_VIEW,
+                    android.net.Uri.parse("nuvio://detail/movie/tt0111161")), 0)) {
+                if (ri.activityInfo != null) nuvioLinks.add(ri.activityInfo.packageName);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        section(tr("Official app", "Resmi uygulama"));
+        boolean anyOfficial = false;
+        for (Map.Entry<String, String> e : apps.entrySet()) {
+            if (!NuvioCloud.isOfficial(e.getKey())) continue;
+            anyOfficial = true;
+            choiceRow(e.getValue(), tr("Always on", "Her zaman açık") + " · " + e.getKey(), true, () -> { });
+        }
+        if (!anyOfficial) {
+            choiceRow("Nuvio", tr("Not installed", "Yüklü değil") + " · " + NuvioCloud.OFFICIAL_PKG, true, () -> { });
+        }
+
+        // Linked apps that were uninstalled stay listed, so they can be unlinked.
+        Set<String> linked = NuvioCloud.linkedApps(this);
+        Map<String, String> others = new HashMap<>();
+        for (Map.Entry<String, String> e : apps.entrySet()) {
+            String pkg = e.getKey();
+            if (NuvioCloud.isOfficial(pkg) || pkg.startsWith("com.stremio.") || pkg.equals(getPackageName())) continue;
+            others.put(pkg, e.getValue());
+        }
+        for (String pkg : linked) if (!others.containsKey(pkg)) others.put(pkg, pkg);
+
+        // Suggestions first, then A-Z. Not sorted by linked state, so rows don't move when toggled.
+        List<String[]> rows = new ArrayList<>();  // {pkg, label, "1" = suggested}
+        for (Map.Entry<String, String> e : others.entrySet()) {
+            String pkg = e.getKey(), label = e.getValue();
+            boolean suggested = nuvioLinks.contains(pkg)
+                    || pkg.toLowerCase(java.util.Locale.ROOT).contains("nuvio")
+                    || label.toLowerCase(java.util.Locale.ROOT).contains("nuvio");
+            rows.add(new String[]{pkg, label, suggested ? "1" : "2"});
+        }
+        Collections.sort(rows, (a, b) -> {
+            int cmp = a[2].compareTo(b[2]);
+            if (cmp == 0) cmp = a[1].compareToIgnoreCase(b[1]);
+            return cmp != 0 ? cmp : a[0].compareTo(b[0]);
+        });
+
+        section(tr("Other apps", "Diğer uygulamalar"));
+        for (String[] r : rows) {
+            final String pkg = r[0];
+            boolean on = linked.contains(pkg);
+            String sub = (!apps.containsKey(pkg) ? tr("Not installed", "Yüklü değil") + " · "
+                    : r[2].equals("1") ? tr("Suggested", "Önerilen") + " · " : "") + pkg;
+            choiceRow(r[1], sub, on, () -> {
+                NuvioCloud.setLinked(this, pkg, !NuvioCloud.linkedApps(this).contains(pkg));
+                rebuildMainRows();
+            });
+        }
+        infoNote(tr("Link Nuvio forks (like Nuvio Native Legacy) that sign in to the same Nuvio account. Their dock tile then shows Nuvio's Continue Watching, and Search opens titles in them.",
+                "Aynı Nuvio hesabıyla giriş yapan Nuvio sürümlerini (Nuvio Native Legacy gibi) bağlayın. Dock'taki kutucukları Nuvio'nun İzlemeye Devam Et listesini gösterir ve Arama içerikleri onlarda açar."));
     }
 
     static final class HiddenAppItem {
@@ -1257,7 +1428,7 @@ public class SettingsActivity extends Activity {
         mainHeadView.setText(tr("Hidden apps", "Gizlenen uygulamalar"));
         List<HiddenAppItem> hiddenList = listHiddenAppItems();
         if (hiddenList.isEmpty()) {
-            row("←  " + tr("Back to Apps", "Uygulamalara dön"), () -> "", () -> {
+            row((I18n.isRtl(this) ? "\u2192  " : "\u2190  ") + tr("Back to Apps", "Uygulamalara d\u00f6n"), () -> "", () -> {
                 showingHiddenApps = false;
                 rebuildMainRows();
                 focusFirstRow();
@@ -1281,7 +1452,7 @@ public class SettingsActivity extends Activity {
         r.setFocusable(true);
         r.setClickable(true);
         r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -1301,7 +1472,7 @@ public class SettingsActivity extends Activity {
         });
         iconIv.setClipToOutline(true);
         LinearLayout.LayoutParams icLp = new LinearLayout.LayoutParams(icSz, icSz);
-        icLp.rightMargin = u(12);
+        icLp.setMarginEnd(u(12));
         r.addView(iconIv, icLp);
 
         TextView l = new TextView(this);
@@ -1330,8 +1501,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             v.setTextColor(has ? 0x99000000 : 0x9EFFFFFF);
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -1393,7 +1562,7 @@ public class SettingsActivity extends Activity {
                     () -> openSubMenu("profile_actions:" + p.id));
         }
         if (Profiles.canAdd(this)) {
-            row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
+            row(tr("Add a person\u2026", "Ki\u015fi ekle\u2026"), () -> chev(), this::promptAddPerson);
         }
         section(tr("OPTIONS", "SEÇENEKLER"));
         row(tr("Ask who is watching on wake", "TV açıldığında kimin izlediğini sor"),
@@ -1410,7 +1579,7 @@ public class SettingsActivity extends Activity {
         in.setSelection(in.getText().length());
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog(tr("Rename person", "Kişiyi yeniden adlandır"))
                 .setView(box)
@@ -1434,7 +1603,7 @@ public class SettingsActivity extends Activity {
         in.setHint(tr("Name", "Ad"));
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog(tr("Add a person", "Kişi ekle"))
                 .setView(box)
@@ -1483,6 +1652,9 @@ public class SettingsActivity extends Activity {
                     () -> Scenes.lockClockPosLabel(this) + " · " + Scenes.lockIdleLabel(this),
                     () -> openSubMenu("lock_screen_settings"));
         }
+        row(tr("Power Off", "Kapat"),
+                () -> ControlPanelOverlay.getActionSummary(this, ControlPanelOverlay.ACTION_POWER),
+                () -> openSubMenu("cp_app:" + ControlPanelOverlay.ACTION_POWER));
 
         section(tr("CONTROL PANEL ITEMS (SHOW / HIDE)", "DENETİM PANELİ ÖĞELERİ (GÖSTER / GİZLE)"));
         for (final String[] itemRow : ControlPanelOverlay.ALL_CP_ITEMS) {
@@ -1504,6 +1676,9 @@ public class SettingsActivity extends Activity {
                     Inputs.prefs(this).edit().putBoolean(Inputs.K_CARD, next).apply();
                     refreshAll();
                 });
+        twoLineRow(tr("Inputs", "Girişler"),
+                () -> tr("Hide inputs or change name of HDMI & TV inputs ›", "Girişleri gizleyin veya HDMI ve TV girişlerinin adını değiştirin ›"),
+                () -> openSubMenu("cp_inputs_mgr"));
 
         section(tr("RESET", "SIFIRLAMA"));
         row(tr("Reset Control Panel actions to default", "Denetim Paneli eylemlerini varsayılana sıfırla"),
@@ -1627,13 +1802,13 @@ public class SettingsActivity extends Activity {
                         : tr("Turn on first", "Önce etkinleştirin"),
                 this::showPresentInfo);
         row(tr("Run first-time setup again…", "İlk kurulumu tekrar çalıştır…"),
-                () -> "›",
+                () -> chev(),
                 () -> {
                     getSharedPreferences("setup", MODE_PRIVATE).edit().putInt("cur_step", 0).apply();
                     startActivity(new Intent(this, SetupActivity.class).putExtra("step", 0));
                 });
         row(tr("Open Android TV Settings…", "Android TV Ayarlarını Aç…"),
-                () -> "›",
+                () -> chev(),
                 () -> Suggestions.start(this, new Intent(Settings.ACTION_SETTINGS)));
 
         section(tr("BACKUP & RESTORE", "YEDEKLEME VE GERİ YÜKLEME"));
@@ -1646,6 +1821,12 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAdvanced() {
+        section(tr("UNINSTALL", "KALDIRMA"));
+        twoLineRow(tr("Uninstall tvOS Launcher", "tvOS Launcher'ı Kaldır"),
+                () -> tr("Restore debloated apps & disabled launchers, revoke permissions, and uninstall ›",
+                         "Debloat edilen uygulamaları ve başlatıcıları geri yükle, izinleri kaldır ve sil ›"),
+                this::showUninstallLauncherFlow);
+
         section(tr("ADB & SECURITY MODE", "ADB VE GÜVENLİK MODU"));
         twoLineRow(tr("ADB operating mode", "ADB çalışma modu"),
                 () -> LocalAdb.getAdbModeLabel(this),
@@ -1662,7 +1843,7 @@ public class SettingsActivity extends Activity {
                         : tr("Off", "Kapalı"),
                 this::toggleAdbPort);
         row(tr("Check permissions", "İzinleri kontrol et"),
-                this::permissionsSummaryCount,
+                () -> advPermSummary != null ? advPermSummary : "…",
                 () -> openSubMenu("check_permissions"));
         row(tr("Remove / revoke all permissions", "Tüm izinleri kaldır / geri al"),
                 () -> tr("Revoke ›", "Kaldır ›"),
@@ -1701,11 +1882,29 @@ public class SettingsActivity extends Activity {
                 "Güvenlik Notu: Keep Alive varsayılan olarak açıktır. Güvenli Mod'da tvOS Launcher, ADB'yi hiç kullanmadan (TV'de ADB açık olsa bile) Erişilebilirliği doğrudan WRITE_SECURE_SETTINGS ile onarır. Kalıcı ADB Modu'nda ise port 5555 üzerinden yerel ADB'yi de kullanabilir."));
 
         section(tr("CLEANYOURTV (BETA)", "CLEANYOURTV (BETA)"));
+        twoLineRow(tr("Download CleanYourTV", "CleanYourTV'yi İndir"),
+                () -> advCytDownloadSummary != null ? advCytDownloadSummary : "…",
+                () -> CleanYourTv.downloadAndExtractLatestRelease(this, () -> {
+                    loadAdvancedSummariesAsync();
+                    rebuildMainRows();
+                    showStatusMsg(tr("CleanYourTV downloaded to Download folder.",
+                            "CleanYourTV Download klasörüne indirildi."));
+                }));
         twoLineRow(tr("Choose TV model", "TV modelini seçin"),
-                () -> CleanYourTv.getSelectedModelSummary(this),
+                () -> advCytModelSummary != null ? advCytModelSummary : "…",
                 () -> {
                     cytAutoContinueToDebloat = false;
-                    openSubMenu("cyt_models");
+                    int count = CleanYourTv.getExtractedModelCountOnDisk(this);
+                    if (count <= 1 || (!CleanYourTv.getSelectedModelSlug(this).isEmpty() && !CleanYourTv.hasSelectedModelFileOnDisk(this))) {
+                        boolean wasDeleted = !CleanYourTv.getSelectedModelSlug(this).isEmpty()
+                                && !CleanYourTv.hasSelectedModelFileOnDisk(this);
+                        CleanYourTv.promptDownloadRequired(this, wasDeleted, () -> {
+                            loadAdvancedSummariesAsync();
+                            openSubMenu("cyt_models");
+                        });
+                    } else {
+                        openSubMenu("cyt_models");
+                    }
                 });
         row(tr("Debloat status", "Debloat durumu"),
                 () -> advDebloatSummary != null ? advDebloatSummary : "…",
@@ -1713,9 +1912,30 @@ public class SettingsActivity extends Activity {
         row(tr("Debloat TV…", "TV Debloat Başlat…"),
                 () -> tr("Start ›", "Başlat ›"),
                 () -> {
+                    if (!CleanYourTv.hasCleanYourTvFiles(this)) {
+                        boolean wasDeleted = !CleanYourTv.getSelectedModelSlug(this).isEmpty();
+                        CleanYourTv.promptDownloadRequired(this, wasDeleted, () -> {
+                            loadAdvancedSummariesAsync();
+                            if (CleanYourTv.getSelectedModelSlug(this).isEmpty()) {
+                                cytAutoContinueToDebloat = true;
+                                openSubMenu("cyt_models");
+                            } else {
+                                cytChecklistItems = null;
+                                openSubMenu("cyt_debloat");
+                            }
+                        });
+                        return;
+                    }
                     if (CleanYourTv.getSelectedModelSlug(this).isEmpty()) {
                         cytAutoContinueToDebloat = true;
-                        openSubMenu("cyt_models");
+                        if (!CleanYourTv.hasFullExamplesExtracted(this)) {
+                            CleanYourTv.promptDownloadRequired(this, false, () -> {
+                                loadAdvancedSummariesAsync();
+                                openSubMenu("cyt_models");
+                            });
+                        } else {
+                            openSubMenu("cyt_models");
+                        }
                     } else {
                         cytChecklistItems = null;
                         openSubMenu("cyt_debloat");
@@ -1744,39 +1964,60 @@ public class SettingsActivity extends Activity {
         // page's first frames aren't blocked; rows show "…" until the values arrive.
         loadAdvancedSummariesAsync();
         if (LocalAdb.getAdbMode(this) == LocalAdb.ADB_MODE_PERSISTENT) {
-            LocalAdb.probePortAsync(this, () -> runOnUiThread(() -> {
-                if (!isFinishing()) refreshAll();
+            LocalAdb.probePortAsync(getApplicationContext(), () -> runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed() && ADVANCED.equals(currentSection) && activeSubMenu == null) {
+                    refreshAll();
+                }
             }));
         } else {
             LocalAdb.portReachable = false;
         }
     }
 
-    private volatile String advLaunchersSummary, advDebloatSummary, advSavedSummary;
-    private boolean advSummariesLoading;
+    private volatile String advPermSummary, advCytDownloadSummary, advCytModelSummary,
+            advLaunchersSummary, advDebloatSummary, advSavedSummary;
+    private volatile boolean advSummariesLoading;
 
     private void loadAdvancedSummariesAsync() {
         if (advSummariesLoading) return;
         advSummariesLoading = true;
-        final android.content.Context app = this;
+        final android.content.Context app = getApplicationContext();
         new Thread(() -> {
-            String launchers, debloat, saved;
+            String perm, cytDl, cytModel, launchers, debloat, saved;
             try {
+                perm = permissionsSummaryCount();
+                cytDl = CleanYourTv.getDownloadStatusSummary(app);
+                cytModel = CleanYourTv.getSelectedModelSummary(app);
                 launchers = CleanYourTv.getSystemLaunchersSummary(app);
                 debloat = CleanYourTv.getDebloatStatusSummary(app);
                 saved = CleanYourTv.getSavedDisabledSummary(app);
             } catch (Throwable t) {
-                launchers = debloat = saved = "";
+                perm = cytDl = cytModel = launchers = debloat = saved = "";
             }
-            final String l = launchers, d = debloat, s = saved;
+            final String p = perm != null ? perm : "";
+            final String dl = cytDl != null ? cytDl : "";
+            final String cm = cytModel != null ? cytModel : "";
+            final String l = launchers != null ? launchers : "";
+            final String d = debloat != null ? debloat : "";
+            final String s = saved != null ? saved : "";
             runOnUiThread(() -> {
                 advSummariesLoading = false;
-                boolean changed = !l.equals(advLaunchersSummary) || !d.equals(advDebloatSummary)
-                        || !s.equals(advSavedSummary);
+                boolean changed = !java.util.Objects.equals(p, advPermSummary)
+                        || !java.util.Objects.equals(dl, advCytDownloadSummary)
+                        || !java.util.Objects.equals(cm, advCytModelSummary)
+                        || !java.util.Objects.equals(l, advLaunchersSummary)
+                        || !java.util.Objects.equals(d, advDebloatSummary)
+                        || !java.util.Objects.equals(s, advSavedSummary);
+                advPermSummary = p;
+                advCytDownloadSummary = dl;
+                advCytModelSummary = cm;
                 advLaunchersSummary = l;
                 advDebloatSummary = d;
                 advSavedSummary = s;
-                if (changed && !isFinishing()) refreshAll();
+                if (changed && !isFinishing() && !isDestroyed()
+                        && ADVANCED.equals(currentSection) && activeSubMenu == null) {
+                    refreshAll();
+                }
             });
         }, "adv-summaries").start();
     }
@@ -2246,6 +2487,71 @@ public class SettingsActivity extends Activity {
                 .show();
     }
 
+    private void showUninstallLauncherFlow() {
+        List<String> savedDebloated = CleanYourTv.getSavedDisabledPackages(this);
+        List<CleanYourTv.DebloatItem> sysLaunchers = CleanYourTv.getInstalledSystemLaunchers(this, null, null);
+        final List<String> toRestore = new ArrayList<>(savedDebloated);
+        for (CleanYourTv.DebloatItem it : sysLaunchers) {
+            if (!toRestore.contains(it.pkg)) {
+                toRestore.add(it.pkg);
+            }
+        }
+
+        dialog(tr("Uninstall tvOS Launcher", "tvOS Launcher'ı Kaldır"))
+                .setMessage(tr(
+                        "Before uninstalling tvOS Launcher:\n\n"
+                        + "1. Reload / re-enable any debloated apps and disabled system launchers so your TV has a working stock home screen.\n"
+                        + "2. Automatically revoke all tvOS Launcher special permissions (Accessibility, Keep Alive, Default Home role) so Android can uninstall cleanly.\n"
+                        + "3. Open the Android app uninstall screen for tvOS Launcher.\n\n"
+                        + "How would you like to proceed?",
+                        "tvOS Launcher'ı kaldırmadan önce:\n\n"
+                        + "1. TV'nizde çalışan bir stok ana ekran kalması için debloat edilen uygulamaları ve devre dışı bırakılan sistem başlatıcılarını geri yükleyin.\n"
+                        + "2. Kaldırma sırasında sorun yaşanmaması için tvOS Launcher'ın tüm özel izinlerini (Erişilebilirlik, Keep Alive, Varsayılan Ana Ekran) otomatik olarak geri alın.\n"
+                        + "3. Android uygulama kaldırma ekranına yönlendirilin.\n\n"
+                        + "Nasıl devam etmek보통 istersiniz?".replace("보통 ", "")))
+                .setPositiveButton(tr("Restore Apps & Launchers First", "Önce Uygulamaları ve Başlatıcıları Yükle"), (d, w) -> {
+                    if (!toRestore.isEmpty()) {
+                        CleanYourTv.enablePackagesList(this, toRestore, true, this::revokeAndRedirectToUninstall);
+                    } else {
+                        revokeAndRedirectToUninstall();
+                    }
+                })
+                .setNeutralButton(tr("Skip Restore & Continue", "Atla ve Devam Et"), (d, w) -> revokeAndRedirectToUninstall())
+                .setNegativeButton(tr("Cancel", "İptal"), null)
+                .show();
+    }
+
+    private void revokeAndRedirectToUninstall() {
+        LocalAdb.setKeepAliveEnabled(this, false);
+        AlertDialog progress = dialog(tr("Preparing Uninstall…", "Kaldırma Hazırlanıyor…"))
+                .setMessage(tr("Revoking all permissions and opening Android uninstall screen…",
+                        "Tüm izinler kaldırılıyor ve Android uygulama kaldırma ekranı açılıyor…"))
+                .setCancelable(false)
+                .create();
+        progress.show();
+        LocalAdb.revokeAllPermissions(this, (success, msg) -> runOnUiThread(() -> {
+            if (isFinishing()) return;
+            try {
+                progress.dismiss();
+            } catch (Throwable ignored) {
+            }
+            android.net.Uri pkgUri = android.net.Uri.parse("package:" + getPackageName());
+            Intent uninstall = new Intent(Intent.ACTION_DELETE, pkgUri)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (!Suggestions.start(this, uninstall)) {
+                Intent uninstallAlt = new Intent(Intent.ACTION_UNINSTALL_PACKAGE, pkgUri)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (!Suggestions.start(this, uninstallAlt)) {
+                    Intent details = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    if (!Suggestions.start(this, details)) {
+                        Suggestions.start(this, new Intent(Settings.ACTION_APPLICATION_SETTINGS));
+                    }
+                }
+            }
+        }));
+    }
+
     private void promptManualDebloatWarning() {
         dialog(tr("⚠️ Manual Debloat Warning", "⚠️ Manuel Debloat Uyarısı"))
                 .setMessage(tr(
@@ -2269,7 +2575,7 @@ public class SettingsActivity extends Activity {
     // ================================================================ Native Right-Side Sub-Menus
 
     private void backSubMenuRow() {
-        row("←  " + tr("Back", "Geri"), () -> "", this::closeSubMenu);
+        row((I18n.isRtl(this) ? "\u2192  " : "\u2190  ") + tr("Back", "Geri"), () -> "", this::closeSubMenu);
     }
 
     private void renderSubMenu(String subId) {
@@ -2280,6 +2586,12 @@ public class SettingsActivity extends Activity {
             subMenuHomeDashboard();
         } else if ("releases_countries".equals(subId)) {
             subMenuReleasesCountries();
+        } else if ("news_country".equals(subId)) {
+            subMenuNewsCountry();
+        } else if ("prayer_location".equals(subId)) {
+            subMenuPrayerLocation();
+        } else if ("cp_inputs_mgr".equals(subId)) {
+            subMenuControlPanelInputs();
         } else if (subId.startsWith("custom_wall:")) {
             subMenuCustomWallpaper(subId.substring("custom_wall:".length()));
         } else if ("ambient_themes".equals(subId)) {
@@ -2290,6 +2602,8 @@ public class SettingsActivity extends Activity {
             subMenuWeatherSource();
         } else if ("top_shelf".equals(subId)) {
             subMenuTopShelf();
+        } else if ("nuvio_apps".equals(subId)) {
+            subMenuNuvioApps();
         } else if (subId.startsWith("profile_actions:")) {
             subMenuProfileActions(subId.substring("profile_actions:".length()));
         } else if (subId.startsWith("cp_app:")) {
@@ -2342,6 +2656,61 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    private void subMenuControlPanelInputs() {
+        mainHeadView.setText(tr("Inputs", "Girişler"));
+        backSubMenuRow();
+        List<Inputs.Input> allInputs = Inputs.listAllForSettings(this);
+        for (final Inputs.Input in : allInputs) {
+            final String key = Inputs.getInputKey(in);
+            final String origTitle = in.origLabel != null && !in.origLabel.isEmpty() ? in.origLabel : in.label;
+            section(origTitle.toUpperCase(I18n.locale(this)));
+            row(tr("Hide input", "Girişi gizle"),
+                    () -> Inputs.isInputHidden(this, key) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                    () -> {
+                        boolean next = !Inputs.isInputHidden(this, key);
+                        Inputs.setInputHidden(this, key, next);
+                        refreshAll();
+                    });
+            twoLineRow(tr("Custom label", "Özel etiket"),
+                    () -> {
+                        String custom = Inputs.getCustomInputLabel(this, key);
+                        return custom.isEmpty()
+                                ? tr("Change name of input", "Girişin adını değiştirin")
+                                : custom + "  ·  " + tr("Change name of input", "Girişin adını değiştirin");
+                    },
+                    () -> promptCustomInputLabelDialog(in));
+        }
+    }
+
+    private void promptCustomInputLabelDialog(final Inputs.Input in) {
+        final String key = Inputs.getInputKey(in);
+        final String origTitle = in.origLabel != null && !in.origLabel.isEmpty() ? in.origLabel : in.label;
+        android.widget.EditText et = new android.widget.EditText(this);
+        et.setSingleLine(true);
+        et.setHint(origTitle);
+        String currentCustom = Inputs.getCustomInputLabel(this, key);
+        et.setText(currentCustom);
+        et.setSelection(et.getText().length());
+        int pad = u(14);
+        FrameLayout box = new FrameLayout(this);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
+        box.addView(et);
+        AlertDialog dlg = dialog(origTitle + " — " + tr("Custom label", "Özel etiket"))
+                .setView(box)
+                .setPositiveButton(tr("Save", "Kaydet"), (d, w) -> {
+                    Inputs.setCustomInputLabel(this, key, et.getText().toString().trim());
+                    rebuildMainRows();
+                })
+                .setNeutralButton(tr("Reset to default", "Varsayılana sıfırla"), (d, w) -> {
+                    Inputs.setCustomInputLabel(this, key, "");
+                    rebuildMainRows();
+                })
+                .setNegativeButton(tr("Cancel", "İptal"), null)
+                .show();
+        Ui.setupDialogEditText(et, dlg);
+        et.requestFocus();
+    }
+
     private void subMenuDockSize() {
         mainHeadView.setText(tr("Dock size", "Dock boyutu"));
         backSubMenuRow();
@@ -2375,6 +2744,8 @@ public class SettingsActivity extends Activity {
     private void subMenuHomeDashboard() {
         mainHeadView.setText(tr("Home screen widget settings", "Ana ekran widget ayarları"));
         backSubMenuRow();
+        infoNote(tr("Tip: Press and hold OK on any widget on the Home screen to open its menu to move (reorder) or disable it.",
+                "İpucu: Ana ekrandaki herhangi bir widget'ın üzerinde OK tuşuna basılı tutarak taşıma (sırasını değiştirme) veya kapatma menüsünü açabilirsiniz."));
         section(tr("HOME SCREEN WIDGETS", "ANA EKRAN WIDGET'LARI"));
         row(tr("Enable Home Dashboard", "Ana Ekran Panelini Etkinleştir"),
                 () -> HomeDashboard.isEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
@@ -2389,36 +2760,28 @@ public class SettingsActivity extends Activity {
                     refreshAll();
                 });
 
-        section(tr("DASHBOARD WIDGETS (4 HORIZONTAL TILES)", "PANEL WIDGET'LARI (4 YATAY KUTU)"));
-        row("🕌  " + I18n.t(this, "dash_prayer_times"),
-                () -> HomeDashboard.isWidgetPrayerEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> {
-                    HomeDashboard.setWidgetPrayerEnabled(this, !HomeDashboard.isWidgetPrayerEnabled(this));
-                    refreshAll();
-                });
-        row("⚽  " + I18n.t(this, "dash_football"),
-                () -> HomeDashboard.isWidgetFootballEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> {
-                    HomeDashboard.setWidgetFootballEnabled(this, !HomeDashboard.isWidgetFootballEnabled(this));
-                    refreshAll();
-                });
-        row("🎬  " + I18n.t(this, "dash_latest_releases"),
-                () -> HomeDashboard.isWidgetReleasesEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> {
-                    HomeDashboard.setWidgetReleasesEnabled(this, !HomeDashboard.isWidgetReleasesEnabled(this));
-                    refreshAll();
-                });
-        row("⛅  " + I18n.t(this, "weather"),
-                () -> HomeDashboard.isWidgetWeatherEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> {
-                    HomeDashboard.setWidgetWeatherEnabled(this, !HomeDashboard.isWidgetWeatherEnabled(this));
-                    refreshAll();
-                });
+        section(tr("DASHBOARD WIDGETS", "PANEL WIDGET'LARI"));
+        List<String> order = HomeDashboard.getWidgetOrder(this);
+        for (int i = 0; i < order.size(); i++) {
+            final String wid = order.get(i);
+            row(HomeDashboard.getWidgetEmojiById(wid) + HomeDashboard.getWidgetTitleById(this, wid),
+                    () -> HomeDashboard.isWidgetEnabledById(this, wid) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+                    () -> {
+                        HomeDashboard.setWidgetEnabledById(this, wid, !HomeDashboard.isWidgetEnabledById(this, wid));
+                        refreshAll();
+                    });
+        }
 
         section(tr("WIDGET SETTINGS", "WIDGET AYARLARI"));
         row("🌍  " + I18n.t(this, "releases_country_setting") + "…",
                 () -> HomeDashboard.getReleasesCountriesSummary(this),
                 () -> openSubMenu("releases_countries"));
+        row("📰  " + I18n.t(this, "news_country_setting") + "…",
+                () -> HomeDashboard.getNewsCountrySummary(this),
+                () -> openSubMenu("news_country"));
+        row("🕌  " + tr("Prayer times location", "Namaz vakti konumu") + "…",
+                () -> HomeDashboard.getPrayerLocationSummary(this),
+                () -> openSubMenu("prayer_location"));
         row(tr("Prayer calculation method", "Namaz vakti hesaplama yöntemi"),
                 () -> HomeDashboard.getPrayerMethodName(this),
                 this::promptPrayerMethodDialog);
@@ -2471,6 +2834,147 @@ public class SettingsActivity extends Activity {
         }
         infoNote(tr("By default, Most Watched automatically syncs with your selected UI language. Selecting any country above switches to custom multi-country mode.",
                 "Varsayılan olarak Çok İzlenenler widget'ı seçili arayüz diliyle otomatik eşitlenir. Yukarıdan ülke seçtiğinizde özel çoklu ülke moduna geçilir."));
+    }
+
+    private void subMenuNewsCountry() {
+        mainHeadView.setText(I18n.t(this, "news_country_setting"));
+        backSubMenuRow();
+
+        boolean autoMode = HomeDashboard.isNewsCountryAuto(this);
+        String autoCode = HomeDashboard.defaultCountryForUiLang(this);
+        String autoLabel = HomeDashboard.getNewsCountryDisplayName(autoCode) + " (" + autoCode + ")";
+
+        section(tr("REGION MODE", "BÖLGE MODU"));
+        choiceRow(I18n.t(this, "news_country_auto"),
+                tr("Currently synced to: ", "Şu anda eşitlenen ülke: ") + autoLabel,
+                autoMode,
+                () -> {
+                    HomeDashboard.setNewsCountry(this, null);
+                    HomeDashboard.fetchLiveNews(this, true, null);
+                    rebuildMainRows();
+                });
+
+        section(tr("COUNTRY", "ÜLKE"));
+        String activeCode = HomeDashboard.getEffectiveNewsCountry(this);
+        for (int i = 0; i < HomeDashboard.NEWS_COUNTRIES.length; i++) {
+            final String code = HomeDashboard.NEWS_COUNTRIES[i][0];
+            final String name = HomeDashboard.NEWS_COUNTRIES[i][1];
+            boolean selected = !autoMode && code.equalsIgnoreCase(activeCode);
+            choiceRow(name + " (" + code + ")",
+                    selected ? tr("Selected", "Seçili")
+                             : tr("Press OK to select this country", "Bu ülkeyi seçmek için OK'a basın"),
+                    selected,
+                    () -> {
+                        HomeDashboard.setNewsCountry(this, code);
+                        HomeDashboard.fetchLiveNews(this, true, null);
+                        rebuildMainRows();
+                    });
+        }
+        infoNote(tr("By default, Live News automatically syncs with your selected launcher language. Selecting a country above overrides it for the News widget.",
+                "Varsayılan olarak Canlı Haberler widget'ı seçili başlatıcı diliyle otomatik eşitlenir. Yukarıdan bir ülke seçtiğinizde Haberler widget'ı o ülkenin haberlerini gösterir."));
+    }
+
+    private void subMenuPrayerLocation() {
+        mainHeadView.setText(tr("Prayer times location", "Namaz vakti konumu"));
+        backSubMenuRow();
+
+        boolean autoMode = HomeDashboard.isPrayerLocationAuto(this);
+        String wxCity = Weather.place(this);
+
+        section(tr("LOCATION MODE", "KONUM MODU"));
+        choiceRow(tr("Sync with Weather location", "Hava Durumu konumu ile eşitle"),
+                (wxCity != null && !wxCity.isEmpty())
+                        ? tr("Currently synced to: ", "Şu anda eşitlenen konum: ") + wxCity
+                        : tr("Automatically follows your Weather location", "Hava Durumu konumunuzu otomatik olarak takip eder"),
+                autoMode,
+                () -> {
+                    HomeDashboard.setPrayerLocationAuto(this);
+                    HomeDashboard.fetchPrayerTimes(this, true, null);
+                    rebuildMainRows();
+                });
+        row(tr("Search city or country…", "Şehir veya ülke ara…"),
+                () -> chev(),
+                this::promptPrayerCitySearchDialog);
+
+        section(tr("POPULAR CITIES", "POPÜLER ŞEHİRLER"));
+        String curCustom = HomeDashboard.getEffectivePrayerCity(this);
+        for (int i = 0; i < HomeDashboard.PRAYER_POPULAR_CITIES.length; i++) {
+            final String label = HomeDashboard.PRAYER_POPULAR_CITIES[i][0];
+            final double lat = Double.parseDouble(HomeDashboard.PRAYER_POPULAR_CITIES[i][1]);
+            final double lon = Double.parseDouble(HomeDashboard.PRAYER_POPULAR_CITIES[i][2]);
+            boolean selected = !autoMode && label.equalsIgnoreCase(curCustom);
+            choiceRow(label,
+                    selected ? tr("Selected", "Seçili")
+                             : tr("Press OK to select this city", "Bu şehri seçmek için OK'a basın"),
+                    selected,
+                    () -> {
+                        HomeDashboard.setPrayerLocation(this, label, lat, lon);
+                        HomeDashboard.fetchPrayerTimes(this, true, null);
+                        rebuildMainRows();
+                    });
+        }
+        infoNote(tr("By default, Prayer Times syncs with the Weather location chosen during setup or in Weather settings. Search or pick any city above to set a separate location for Prayer Times.",
+                "Varsayılan olarak Namaz Vakitleri, ilk kurulumda veya Hava Durumu ayarlarında seçilen konumla eşitlenir. Namaz Vakitleri için ayrı bir konum belirlemek üzere yukarıdan şehir arayabilir veya seçebilirsiniz."));
+    }
+
+    private void promptPrayerCitySearchDialog() {
+        android.widget.EditText in = new android.widget.EditText(this);
+        in.setSingleLine(true);
+        in.setHint(tr("City or country, e.g. Istanbul, London", "Şehir veya ülke, örn. İstanbul, Londra"));
+        in.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        int pad = u(14);
+        FrameLayout box = new FrameLayout(this);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
+        box.addView(in);
+        AlertDialog dlg = dialog(tr("Search City or Country", "Şehir veya Ülke Ara"))
+                .setView(box)
+                .setPositiveButton(tr("Search", "Ara"), (d, w) -> {
+                    String q = in.getText().toString().trim();
+                    if (q.isEmpty()) return;
+                    showStatusMsg(tr("Searching…", "Aranıyor…"));
+                    new Thread(() -> {
+                        List<Weather.Place> found;
+                        try {
+                            found = Weather.search(q);
+                        } catch (Exception e) {
+                            found = null;
+                        }
+                        List<Weather.Place> res = found;
+                        runOnUiThread(() -> showPrayerCityMatches(q, res));
+                    }).start();
+                })
+                .setNegativeButton(tr("Cancel", "İptal"), null)
+                .show();
+        Ui.setupDialogEditText(in, dlg);
+        in.requestFocus();
+    }
+
+    private void showPrayerCityMatches(String q, List<Weather.Place> res) {
+        if (isFinishing()) return;
+        showStatusMsg(null);
+        if (res == null) {
+            showStatusMsg(tr("Couldn't search. Check the internet connection.", "Arama yapılamadı. İnternet bağlantısını kontrol edin."));
+            return;
+        }
+        if (res.isEmpty()) {
+            showStatusMsg(tr("No place found for \u201c" + q + "\u201d.", "\u201c" + q + "\u201d için konum bulunamadı."));
+            return;
+        }
+        String[] names = new String[res.size()];
+        for (int i = 0; i < res.size(); i++) {
+            Weather.Place pl = res.get(i);
+            names[i] = pl.detail.isEmpty() ? pl.name : (pl.name + "  \u00b7  " + pl.detail);
+        }
+        dialog(tr("Matching places", "Eşleşen konumlar"))
+                .setItems(names, (d, which) -> {
+                    Weather.Place picked = res.get(which);
+                    String label = picked.detail.isEmpty() ? picked.name : (picked.name + ", " + picked.detail);
+                    HomeDashboard.setPrayerLocation(this, label, picked.lat, picked.lon);
+                    HomeDashboard.fetchPrayerTimes(this, true, null);
+                    rebuildMainRows();
+                })
+                .setNegativeButton(tr("Cancel", "İptal"), null)
+                .show();
     }
 
     private void promptPrayerMethodDialog() {
@@ -2558,6 +3062,12 @@ public class SettingsActivity extends Activity {
 
         if (subMode == CustomMedia.CUSTOM_MODE_SINGLE_MULTI) {
             section(tr("CUSTOM WALLPAPERS (UNLIMITED)", "ÖZEL DUVAR KAĞITLARI (SINIRSIZ)"));
+            row(tr("Auto-change interval", "Otomatik değişim süresi"),
+                    () -> Scenes.getStayIntervalLabel(this),
+                    () -> {
+                        Scenes.cycleStaySeconds(this);
+                        refreshAll();
+                    });
             row("＋  " + tr("Add new wallpaper…", "Yeni duvar kağıdı ekle…"),
                     () -> tr("Choose image ›", "Görsel seç ›"),
                     () -> CustomMedia.showImageFilePicker(
@@ -2574,8 +3084,8 @@ public class SettingsActivity extends Activity {
                                     Scenes.enableCustomScene(this, slot, true);
                                 }
                                 rebuildMainRows();
-                                showStatusMsg(tr("Added custom wallpaper #" + slot + ".",
-                                        "Özel duvar kağıdı #" + slot + " eklendi."));
+                                showStatusMsg(tr("Added custom wallpaper #%s.",
+                                        "Özel duvar kağıdı #%s eklendi.", slot));
                             }));
 
             int totalSlots = CustomMedia.getCustomSlotCount(this, scope);
@@ -2627,6 +3137,29 @@ public class SettingsActivity extends Activity {
                                     CustomMedia.setActiveCustomSlot(this, scope, slot);
                                     rebuildMainRows();
                                 }));
+                if (isScene) {
+                    final boolean hasFg = CustomMedia.hasCustomSceneForeground(this, slot);
+                    row("   ✦  " + tr("Depth Effect Foreground (PNG) #", "Derinlik Efekti Ön Planı (PNG) #") + slot,
+                            () -> hasFg ? tr("Set (PNG cutout) ›", "Ayarlandı (PNG kesim) ›") : tr("None — Choose PNG ›", "Yok — PNG seç ›"),
+                            () -> CustomMedia.showImageFilePicker(
+                                    this,
+                                    tr("Select Transparent PNG Foreground", "Şeffaf PNG Ön Plan Seçin") + " (#" + slot + ")",
+                                    false,
+                                    1920,
+                                    1080,
+                                    hasFg ? tr("Remove foreground cutout", "Ön plan kesimini kaldır") : null,
+                                    hasFg ? () -> {
+                                        CustomMedia.clearCustomSceneForeground(this, slot);
+                                        rebuildMainRows();
+                                        showStatusMsg(tr("Depth effect foreground removed.", "Derinlik efekti ön planı kaldırıldı."));
+                                    } : null,
+                                    bmp -> {
+                                        CustomMedia.setCustomSceneForeground(this, slot, bmp);
+                                        CustomMedia.setActiveCustomSlot(this, scope, slot);
+                                        rebuildMainRows();
+                                        showStatusMsg(tr("Depth effect foreground updated.", "Derinlik efekti ön planı güncellendi."));
+                                    }));
+                }
                 row("   🗑  " + tr("Remove Wallpaper #", "Duvar Kağıdını Kaldır #") + slot,
                         () -> "",
                         () -> {
@@ -2636,6 +3169,12 @@ public class SettingsActivity extends Activity {
             }
         } else if (subMode == CustomMedia.CUSTOM_MODE_FOLDER_SHUFFLE) {
             section(tr("SHUFFLE FOLDER", "KARIŞTIRMA KLASÖRÜ"));
+            row(tr("Auto-change interval", "Otomatik değişim süresi"),
+                    () -> Scenes.getStayIntervalLabel(this),
+                    () -> {
+                        Scenes.cycleStaySeconds(this);
+                        refreshAll();
+                    });
             row("📁  " + tr("Select wallpaper folder…", "Duvar kağıdı klasörü seçin…"),
                     () -> CustomMedia.getWallpaperShuffleFolderSummary(this, scope),
                     () -> CustomMedia.showFolderPicker(
@@ -2777,7 +3316,7 @@ public class SettingsActivity extends Activity {
         section(tr("FORECAST PROVIDER", "HAVA TAHMİNİ SAĞLAYICISI"));
         String cur = Weather.source(this);
         String[] keys = Weather.SOURCES;
-        String[] names = {"Open-Meteo", "MET Norway (Yr)", "wttr.in  (3 days)"};
+        String[] names = {"Open-Meteo", "MET Norway (Yr)", "wttr.in  (" + tr("3 days", "3 g\u00fcn") + ")"};
         for (int i = 0; i < keys.length; i++) {
             final String k = keys[i];
             final String n = names[i];
@@ -2832,13 +3371,13 @@ public class SettingsActivity extends Activity {
         backSubMenuRow();
         section(dispName);
         row(tr("Switch to " + dispName, dispName + " profiline geç"),
-                () -> Profiles.current(this).id.equals(p.id) ? tr("Active", "Etkin") : "›",
+                () -> Profiles.current(this).id.equals(p.id) ? tr("Active", "Etkin") : chev(),
                 () -> {
                     Profiles.setCurrent(this, p.id);
                     closeSubMenu();
                 });
         row(tr("Rename…", "Yeniden adlandır…"),
-                () -> "›",
+                () -> chev(),
                 () -> promptRenamePerson(p, rowIdx));
         if (all.size() > 1) {
             row(tr("Remove person", "Kişiyi kaldır"),
@@ -2856,6 +3395,7 @@ public class SettingsActivity extends Activity {
         if (ControlPanelOverlay.ACTION_SOUND.equals(actionKey)) return tr("Sound", "Ses");
         if (ControlPanelOverlay.ACTION_INPUTS.equals(actionKey)) return tr("Inputs", "Girişler");
         if (ControlPanelOverlay.ACTION_AMBIENT.equals(actionKey)) return tr("Ambient Mode", "Ortam Modu");
+        if (ControlPanelOverlay.ACTION_POWER.equals(actionKey)) return tr("Power Off", "Kapat");
         return actionKey;
     }
 
@@ -2868,17 +3408,30 @@ public class SettingsActivity extends Activity {
         String curPkg = ControlPanelOverlay.getCustomPkg(this, actionKey);
         boolean isAmbient = ControlPanelOverlay.ACTION_AMBIENT.equals(actionKey);
         boolean isLockMode = isAmbient && ControlPanelOverlay.isAmbientLockScreenMode(this);
+        boolean isPower = ControlPanelOverlay.ACTION_POWER.equals(actionKey);
+        boolean isPowerNative = isPower && ControlPanelOverlay.isPowerNativeMenuMode(this);
 
-        choiceRow("↺  " + (isAmbient ? tr("Default (Ambient Mode)", "Varsayılan (Ortam Modu)")
-                                     : tr("Default (Automatic)", "Varsayılan (Otomatik)")),
-                isAmbient ? tr("Open TV Ambient Mode / Screensaver (or built-in fallback)",
-                               "TV Ortam Modunu / Ekran Koruyucuyu aç (veya yerleşik görünüm)")
-                          : tr("Use built-in Android TV shortcut", "Yerleşik Android TV kısayolunu kullan"),
-                curPkg.isEmpty() && !isLockMode,
+        String defaultTitle = isAmbient
+                ? tr("Default (Ambient Mode)", "Varsayılan (Ortam Modu)")
+                : (isPower
+                        ? tr("Default (Screen Off)", "Varsayılan (Ekranı Kapat)")
+                        : tr("Default (Automatic)", "Varsayılan (Otomatik)"));
+        String defaultSubtitle = isAmbient
+                ? tr("Open TV Ambient Mode / Screensaver (or built-in fallback)",
+                        "TV Ortam Modunu / Ekran Koruyucuyu aç (veya yerleşik görünüm)")
+                : (isPower
+                        ? tr("Turn off screen / put TV to sleep", "Ekranı kapat / TV'yi uyku moduna al")
+                        : tr("Use built-in Android TV shortcut", "Yerleşik Android TV kısayolunu kullan"));
+
+        choiceRow("↺  " + defaultTitle,
+                defaultSubtitle,
+                curPkg.isEmpty() && !isLockMode && !isPowerNative,
                 () -> {
                     ControlPanelOverlay.clearCustomAction(this, actionKey);
                     closeSubMenu();
-                    showStatusMsg(actionTitle + ": " + tr("Default (Automatic)", "Varsayılan (Otomatik)"));
+                    showStatusMsg(actionTitle + ": " + (isPower
+                            ? tr("Default (Screen Off)", "Varsayılan (Ekranı Kapat)")
+                            : tr("Default (Automatic)", "Varsayılan (Otomatik)")));
                 });
 
         if (isAmbient) {
@@ -2890,6 +3443,19 @@ public class SettingsActivity extends Activity {
                         ControlPanelOverlay.setAmbientLockScreenMode(this, true);
                         closeSubMenu();
                         showStatusMsg(actionTitle + ": " + tr("Lock Screen", "Kilit Ekranı"));
+                    });
+        }
+
+        if (isPower) {
+            choiceRow("⏻  " + tr("Android Power Menu (Shutdown / Reboot / Standby)",
+                            "Android Güç Menüsü (Kapat / Yeniden Başlat / Bekleme)"),
+                    tr("Show native Android shutdown, reboot, and standby menu",
+                       "Yerel Android kapatma, yeniden başlatma ve bekleme menüsünü göster"),
+                    isPowerNative,
+                    () -> {
+                        ControlPanelOverlay.setPowerNativeMenuMode(this, true);
+                        closeSubMenu();
+                        showStatusMsg(actionTitle + ": " + tr("Android Power Menu", "Android Güç Menüsü"));
                     });
         }
 
@@ -3199,6 +3765,7 @@ public class SettingsActivity extends Activity {
     // ---------------- CleanYourTV Native Right-Side Sub-Menus ----------------
 
     private void subMenuCytModels() {
+        int modelCount = CleanYourTv.loadIndex(this).size();
         CleanYourTv.HardwareMatchResult hw = CleanYourTv.findHardwareMatches(this);
         mainHeadView.setText(tr("Choose TV model", "TV modelini seçin"));
         backSubMenuRow();
@@ -3211,7 +3778,8 @@ public class SettingsActivity extends Activity {
                     cytScannedMatches = null;
                     openSubMenu("cyt_models_scan");
                 });
-        twoLineRow(tr("📋 Browse / Search All 341 TV Models", "📋 Tüm 341 TV Modeline Göz At / Ara"),
+        twoLineRow(tr("📋 Browse / Search All " + modelCount + " TV Models",
+                      "📋 Tüm " + modelCount + " TV Modeline Göz At / Ara"),
                 () -> tr("View or filter the complete list of supported TV models",
                          "Desteklenen tüm TV modellerinin tam listesini görüntüle veya filtrele"),
                 () -> {
@@ -3239,18 +3807,32 @@ public class SettingsActivity extends Activity {
     private void selectCytModelAndProceed(CleanYourTv.ModelEntry entry) {
         CleanYourTv.setSelectedModel(this, entry);
         cytChecklistItems = null;
-        showStatusMsg(tr("Selected model: " + entry.title, "Seçilen model: " + entry.title));
-        if (cytAutoContinueToDebloat) {
-            cytAutoContinueToDebloat = false;
-            activeSubMenu = "cyt_debloat";
-            rebuildMainRows();
-            focusFirstRow();
-        } else {
-            rebuildMainRows();
-        }
+        loadAdvancedSummariesAsync();
+        final boolean autoDebloat = cytAutoContinueToDebloat;
+        cytAutoContinueToDebloat = false;
+        CleanYourTv.promptCleanUpUnnecessaryFiles(this, entry, () -> {
+            loadAdvancedSummariesAsync();
+            if (autoDebloat) {
+                subMenuStack.clear();
+                subMenuParentFocusIdx.clear();
+                subMenuStack.add("");
+                subMenuParentFocusIdx.add(1);
+                activeSubMenu = "cyt_debloat";
+                rebuildMainRows();
+                focusFirstRow();
+            } else {
+                subMenuStack.clear();
+                subMenuParentFocusIdx.clear();
+                activeSubMenu = null;
+                rebuildMainRows();
+                focusFirstRow();
+                showStatusMsg(tr("Selected model: " + entry.title, "Seçilen model: " + entry.title));
+            }
+        });
     }
 
     private void subMenuCytScannedModels() {
+        int modelCount = CleanYourTv.loadIndex(this).size();
         mainHeadView.setText(tr("Models by System App Similarity", "Sistem Uygulaması Benzerliğine Göre Modeller"));
         backSubMenuRow();
 
@@ -3270,8 +3852,8 @@ public class SettingsActivity extends Activity {
                     });
                 }, "cyt-submenu-scan").start();
             }
-            infoNote(tr("Scanning installed system packages over ADB and comparing across 341 TV models…",
-                    "ADB üzerinden yüklü sistem paketleri taranıyor ve 341 TV modeliyle karşılaştırılıyor…"));
+            infoNote(tr("Scanning installed system packages over ADB and comparing across " + modelCount + " TV models…",
+                    "ADB üzerinden yüklü sistem paketleri taranıyor ve " + modelCount + " TV modeliyle karşılaştırılıyor…"));
             return;
         }
 
@@ -3289,11 +3871,12 @@ public class SettingsActivity extends Activity {
     }
 
     private void subMenuCytAllModels() {
-        mainHeadView.setText(tr("All 341 TV Models", "Tüm 341 TV Modeli"));
+        int modelCount = CleanYourTv.loadIndex(this).size();
+        mainHeadView.setText(tr("All " + modelCount + " TV Models", "Tüm " + modelCount + " TV Modeli"));
         backSubMenuRow();
 
         row(tr("🔍 Search / Filter by brand or model…", "🔍 Marka veya modele göre ara / filtrele…"),
-                () -> cytModelFilterQuery.isEmpty() ? tr("All (341)", "Tümü (341)") : "\"" + cytModelFilterQuery + "\"",
+                () -> cytModelFilterQuery.isEmpty() ? tr("All (" + modelCount + ")", "Tümü (" + modelCount + ")") : "\"" + cytModelFilterQuery + "\"",
                 this::promptCytModelFilter);
         if (!cytModelFilterQuery.isEmpty()) {
             row(tr("Clear filter (Show all)", "Filtreyi temizle (Tümünü göster)"),
@@ -3411,7 +3994,7 @@ public class SettingsActivity extends Activity {
         in.setSelection(in.getText().length());
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog(tr("Filter TV Models", "TV Modellerini Filtrele"))
                 .setView(box)
@@ -3483,7 +4066,7 @@ public class SettingsActivity extends Activity {
             infoNote(tr("None of the packages listed in " + model.title + " are installed on this TV.",
                     model.title + " profilindeki paketlerin hiçbiri bu TV'de yüklü değil."));
             row(tr("🔍 Scan Installed System Apps to Find Matching Model", "🔍 Eşleşen Modeli Bulmak İçin Yüklü Uygulamaları Tara"),
-                    () -> "›",
+                    () -> chev(),
                     () -> {
                         cytScannedMatches = null;
                         openSubMenu("cyt_models_scan");
@@ -3499,7 +4082,7 @@ public class SettingsActivity extends Activity {
                     : tr("On Google TV, if you disable setupwraith, make sure your Wi-Fi network was re-added in Wi-Fi Settings.",
                          "Google TV'de setupwraith'i devre dışı bırakacaksanız Wi-Fi ağınızı Wi-Fi Ayarları'ndan yeniden eklediğinizden emin olun."));
             row(tr("📶 Open Wi-Fi Settings…", "📶 Wi-Fi Ayarlarını Aç…"),
-                    () -> "›",
+                    () -> chev(),
                     () -> {
                         Intent wifi = new Intent(Settings.ACTION_WIFI_SETTINGS);
                         if (!Suggestions.start(this, wifi)) {
@@ -3618,8 +4201,8 @@ public class SettingsActivity extends Activity {
                     });
                 });
 
-        section(tr("INSTALLED SYSTEM LAUNCHERS ON THIS TV (" + launchers.size() + ")",
-                "BU TV'DE YÜKLÜ SİSTEM BAŞLATICILARI (" + launchers.size() + ")"));
+        section(tr("INSTALLED SYSTEM LAUNCHERS ON THIS TV (%s)",
+                "BU TV'DE YÜKLÜ SİSTEM BAŞLATICILARI (%s)", launchers.size()));
         for (CleanYourTv.DebloatItem it : launchers) {
             final CleanYourTv.DebloatItem item = it;
             boolean isEnabled = item.checked;
@@ -3670,7 +4253,7 @@ public class SettingsActivity extends Activity {
         }
 
         row(tr("🔍 Filter system apps…", "🔍 Sistem uygulamalarını filtrele…"),
-                () -> cytManualFilterQuery.isEmpty() ? tr("All (" + cytManualItems.size() + ")", "Tümü (" + cytManualItems.size() + ")") : "\"" + cytManualFilterQuery + "\"",
+                () -> cytManualFilterQuery.isEmpty() ? tr("All (%s)", "Tümü (%s)", cytManualItems.size()) : "\"" + cytManualFilterQuery + "\"",
                 this::promptCytManualFilter);
         if (!cytManualFilterQuery.isEmpty()) {
             row(tr("Clear filter", "Filtreyi temizle"),
@@ -3810,7 +4393,7 @@ public class SettingsActivity extends Activity {
         in.setSelection(in.getText().length());
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog(tr("Filter System Apps", "Sistem Uygulamalarını Filtrele"))
                 .setView(box)
@@ -3886,7 +4469,7 @@ public class SettingsActivity extends Activity {
             infoNote(tr("No saved disabled-app backup was found, and no TV model is selected yet. Choose a TV model first if you want to restore by model profile.",
                     "Kaydedilmiş devre dışı uygulama yedeği bulunamadı ve henüz bir TV modeli seçilmedi."));
             row(tr("Choose TV model…", "TV modelini seçin…"),
-                    () -> "›",
+                    () -> chev(),
                     () -> {
                         cytAutoContinueToDebloat = false;
                         openSubMenu("cyt_models");
@@ -3961,7 +4544,7 @@ public class SettingsActivity extends Activity {
         Ui.textSize(t, 10.5f);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.leftMargin = u(14);
+        lp.setMarginStart(u(14));
         lp.topMargin = list.getChildCount() == 0 ? u(2) : u(12);
         lp.bottomMargin = u(4);
         list.addView(t, lp);
@@ -3974,7 +4557,7 @@ public class SettingsActivity extends Activity {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setFocusable(true);
         r.setClickable(true);
-        r.setPadding(u(16), u(9), u(16), u(9));
+        r.setPaddingRelative(u(16), u(9), u(16), u(9));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4030,8 +4613,6 @@ public class SettingsActivity extends Activity {
             if (checked) {
                 mark.setImageBitmap(has ? cachedCheckDark : cachedCheckWhite);
             }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
         r.setOnClickListener(view -> onClick.run());
 
@@ -4056,7 +4637,7 @@ public class SettingsActivity extends Activity {
         r.setClickable(true);
         r.setLongClickable(true);
         r.setTag("scene:" + spec.id);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4077,7 +4658,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4115,10 +4696,17 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             updateCheck.run();
-            float scale = has ? (isLifted ? 1.04f : 1.02f) : 1f;
-            float tx = has && isLifted ? u(6) : 0f;
-            view.animate().scaleX(scale).scaleY(scale).translationX(tx)
-                    .setDuration(160).start();
+            if (isLifted) {
+                float scale = has ? 1.04f : 1f;
+                float tx = has ? u(6) : 0f;
+                view.animate().scaleX(scale).scaleY(scale).translationX(tx)
+                        .setDuration(160).start();
+            } else {
+                view.animate().cancel();
+                view.setScaleX(1f);
+                view.setScaleY(1f);
+                view.setTranslationX(0f);
+            }
         });
 
         r.setOnClickListener(view -> {
@@ -4126,7 +4714,7 @@ public class SettingsActivity extends Activity {
                 liftedSceneId = null;
                 updateHintText(true);
                 refreshAll();
-                view.animate().scaleX(1.02f).scaleY(1.02f).translationX(0f).setDuration(150).start();
+                view.animate().scaleX(1f).scaleY(1f).translationX(0f).setDuration(150).start();
                 return;
             }
             if (!Scenes.toggleScene(this, spec.id)) {
@@ -4146,8 +4734,8 @@ public class SettingsActivity extends Activity {
             updateHintText(true);
             updateCheck.run();
             boolean nowLifted = spec.id.equals(liftedSceneId);
-            view.animate().scaleX(nowLifted ? 1.04f : 1.02f)
-                    .scaleY(nowLifted ? 1.04f : 1.02f)
+            view.animate().scaleX(nowLifted ? 1.04f : 1f)
+                    .scaleY(nowLifted ? 1.04f : 1f)
                     .translationX(nowLifted ? u(6) : 0f)
                     .setDuration(160).start();
             return true;
@@ -4222,7 +4810,7 @@ public class SettingsActivity extends Activity {
         r.setClickable(true);
         r.setLongClickable(true);
         r.setTag("scene:" + cid);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4247,7 +4835,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4281,8 +4869,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             updateCheck.run();
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -4369,7 +4955,7 @@ public class SettingsActivity extends Activity {
         r.setFocusable(true);
         r.setClickable(true);
         r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4399,7 +4985,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4428,8 +5014,6 @@ public class SettingsActivity extends Activity {
             if (checked) {
                 mark.setImageBitmap(Glyphs.get("check", cs, has ? 0xFF111114 : Color.WHITE));
             }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -4494,7 +5078,7 @@ public class SettingsActivity extends Activity {
         r.setClickable(true);
         r.setLongClickable(true);
         r.setTag("scene:" + fid);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4519,7 +5103,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4564,8 +5148,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             updateCheck.run();
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -4645,7 +5227,7 @@ public class SettingsActivity extends Activity {
         r.setFocusable(true);
         r.setClickable(true);
         r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4670,7 +5252,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4710,8 +5292,6 @@ public class SettingsActivity extends Activity {
             if (checked) {
                 mark.setImageBitmap(Glyphs.get("check", cs, has ? 0xFF111114 : Color.WHITE));
             }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -4774,7 +5354,7 @@ public class SettingsActivity extends Activity {
                     refreshAll();
                 });
         row(tr("Preview Lock Screen now", "Kilit Ekranını şimdi önizle"),
-                () -> "›",
+                () -> chev(),
                 () -> MainActivity.triggerLockScreen(this));
 
         section(tr("NIGHT SCENES", "GECE SAHNELERİ"));
@@ -4809,7 +5389,7 @@ public class SettingsActivity extends Activity {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setFocusable(true);
         r.setClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4834,7 +5414,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4868,8 +5448,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             updateCheck.run();
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -4915,7 +5493,7 @@ public class SettingsActivity extends Activity {
         r.setFocusable(true);
         r.setClickable(true);
         r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -4940,7 +5518,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -4974,8 +5552,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             updateCheck.run();
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -5042,7 +5618,7 @@ public class SettingsActivity extends Activity {
         r.setFocusable(true);
         r.setClickable(true);
         r.setLongClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -5067,7 +5643,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -5112,8 +5688,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             updateCheck.run();
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
 
         r.setOnClickListener(view -> {
@@ -5161,7 +5735,7 @@ public class SettingsActivity extends Activity {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setFocusable(true);
         r.setClickable(true);
-        r.setPadding(u(14), u(6), u(16), u(6));
+        r.setPaddingRelative(u(14), u(6), u(16), u(6));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -5181,7 +5755,7 @@ public class SettingsActivity extends Activity {
         });
         thumb.setClipToOutline(true);
         LinearLayout.LayoutParams thlp = new LinearLayout.LayoutParams(tw, th);
-        thlp.rightMargin = u(12);
+        thlp.setMarginEnd(u(12));
         r.addView(thumb, thlp);
 
         TextView l = new TextView(this);
@@ -5210,8 +5784,6 @@ public class SettingsActivity extends Activity {
             if (checked) {
                 mark.setImageBitmap(Glyphs.get("check", cs, has ? 0xFF111114 : Color.WHITE));
             }
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
         r.setOnClickListener(view -> onClick.run());
 
@@ -5232,7 +5804,7 @@ public class SettingsActivity extends Activity {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setFocusable(true);
         r.setClickable(true);
-        r.setPadding(u(16), 0, u(16), 0);
+        r.setPaddingRelative(u(16), 0, u(16), 0);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -5255,7 +5827,7 @@ public class SettingsActivity extends Activity {
         v.setSingleLine(true);
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        vlp.leftMargin = u(10);
+        vlp.setMarginStart(u(10));
         r.addView(v, vlp);
 
         Runnable refresh = () -> {
@@ -5277,8 +5849,6 @@ public class SettingsActivity extends Activity {
             bg.setColor(has ? Color.WHITE : 0x14FFFFFF);
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             v.setTextColor(has ? 0x99000000 : 0x9EFFFFFF);
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
         r.setOnClickListener(view -> {
             action.run();
@@ -5299,7 +5869,7 @@ public class SettingsActivity extends Activity {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setFocusable(true);
         r.setClickable(true);
-        r.setPadding(u(16), u(9), u(16), u(9));
+        r.setPaddingRelative(u(16), u(9), u(16), u(9));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(u(13));
@@ -5332,13 +5902,13 @@ public class SettingsActivity extends Activity {
         r.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView chev = new TextView(this);
-        chev.setText("›");
+        chev.setText(chev());
         chev.setTextColor(0x9EFFFFFF);
         chev.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(chev, 15f);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.leftMargin = u(10);
+        clp.setMarginStart(u(10));
         r.addView(chev, clp);
 
         Runnable refresh = () -> {
@@ -5361,8 +5931,6 @@ public class SettingsActivity extends Activity {
             l.setTextColor(has ? 0xFF111114 : 0xEBF4F4F6);
             v.setTextColor(has ? 0x99000000 : 0x9EFFFFFF);
             chev.setTextColor(has ? 0x99000000 : 0x9EFFFFFF);
-            view.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.02f : 1f)
-                    .setDuration(160).start();
         });
         r.setOnClickListener(view -> {
             action.run();
@@ -5381,7 +5949,7 @@ public class SettingsActivity extends Activity {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setPadding(u(14), u(5), u(14), u(5));
+        r.setPaddingRelative(u(14), u(5), u(14), u(5));
 
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
@@ -5421,7 +5989,7 @@ public class SettingsActivity extends Activity {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setPadding(u(14), u(5), u(14), u(5));
+        r.setPaddingRelative(u(14), u(5), u(14), u(5));
 
         LinearLayout texts = new LinearLayout(this);
         texts.setOrientation(LinearLayout.VERTICAL);
@@ -5472,8 +6040,8 @@ public class SettingsActivity extends Activity {
         Ui.textSize(t, 11.5f);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.leftMargin = u(14);
-        lp.rightMargin = u(14);
+        lp.setMarginStart(u(14));
+        lp.setMarginEnd(u(14));
         lp.topMargin = u(6);
         lp.bottomMargin = u(4);
         list.addView(t, lp);
@@ -5664,7 +6232,7 @@ public class SettingsActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
-            return "2.1.5";
+            return "2.2.5";
         }
     }
 
@@ -5677,7 +6245,7 @@ public class SettingsActivity extends Activity {
         in.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPaddingRelative(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog(tr("Choose City", "Şehir Seçin"))
                 .setView(box)
@@ -5737,11 +6305,11 @@ public class SettingsActivity extends Activity {
         box.setOrientation(LinearLayout.HORIZONTAL);
         box.setGravity(Gravity.CENTER_VERTICAL);
         int pad = u(16);
-        box.setPadding(pad, pad, pad, pad / 2);
+        box.setPaddingRelative(pad, pad, pad, pad / 2);
         ImageView qr = new ImageView(this);
         qr.setImageBitmap(com.techgenius.tvoslauncher.present.Presenter.qr(u(110)));
         qr.setBackgroundColor(Color.WHITE);
-        qr.setPadding(u(6), u(6), u(6), u(6));
+        qr.setPaddingRelative(u(6), u(6), u(6), u(6));
         box.addView(qr, new LinearLayout.LayoutParams(u(122), u(122)));
         TextView info = new TextView(this);
         String pin = com.techgenius.tvoslauncher.present.Presenter.pin(this);
@@ -5752,7 +6320,7 @@ public class SettingsActivity extends Activity {
         info.setTextColor(Color.WHITE);
         info.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(info, 14);
-        info.setPadding(u(18), 0, 0, 0);
+        info.setPaddingRelative(u(18), 0, 0, 0);
         box.addView(info);
         dialog(tr("Send to this TV", "Bu TV'ye gönder")).setView(box).setPositiveButton(tr("Done", "Tamam"), null).show();
     }

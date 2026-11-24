@@ -180,9 +180,38 @@ final class Suggestions {
         return prefs(c).getString(K_SOURCE, SRC_JUSTWATCH);
     }
 
-    /** Stremio when installed (or neither is), else Nuvio. */
+    /** The default app for Stremio titles: the first of {@link #stremioApps}, or Stremio when none is installed. */
     static Provider stremioApp(Context c) {
-        return !installed(c, STREMIO.pkg) && installed(c, NUVIO.pkg) ? NUVIO : STREMIO;
+        List<Provider> all = stremioApps(c);
+        return all.isEmpty() ? STREMIO : all.get(0);
+    }
+
+    /**
+     * Every installed app that opens Cinemeta titles by IMDb id: Stremio, the official Nuvio app,
+     * then linked Nuvio forks (each under its own name, e.g. "Nuvio Legacy").
+     */
+    static List<Provider> stremioApps(Context c) {
+        List<Provider> out = new ArrayList<>();
+        if (installed(c, STREMIO.pkg)) out.add(STREMIO);
+        for (String pkg : NuvioCloud.installedApps(c)) out.add(nuvioProvider(c, pkg));
+        return out;
+    }
+
+    /** The app for a Stremio-title offer's package (Stremio or one of the Nuvio apps). */
+    static Provider stremioAppFor(Context c, String pkg) {
+        for (Provider p : stremioApps(c)) if (p.pkg.equals(pkg)) return p;
+        return stremioApp(c);
+    }
+
+    private static Provider nuvioProvider(Context c, String pkg) {
+        if (pkg.equals(NUVIO.pkg)) return NUVIO;
+        String label = NUVIO.name;
+        try {
+            PackageManager pm = c.getPackageManager();
+            label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString().trim();
+        } catch (Exception ignored) {
+        }
+        return new Provider(NUVIO_ID, label.isEmpty() ? NUVIO.name : label, pkg, "", "");
     }
 
     static String sourceName(String s) {
@@ -370,6 +399,9 @@ final class Suggestions {
                 ? Arrays.asList("US") : countries;
         String uiLang = I18n.getLang(c);
         String jwLang = "az".equals(uiLang) ? "tr" : uiLang;
+        if (jwLang != null && jwLang.contains("-")) {
+            jwLang = jwLang.substring(0, jwLang.indexOf('-'));
+        }
         if (jwLang == null || jwLang.length() != 2) jwLang = "en";
 
         List<List<Item>> perCountryLists = new ArrayList<>();
@@ -460,7 +492,7 @@ final class Suggestions {
             String n = names.get(g.optJSONObject(i).optString("shortName"));
             if (n != null) out.add(n);
         }
-        return String.join(" \u00b7 ", out);
+        return android.text.TextUtils.join(" \u00b7 ", out);
     }
 
     static JSONObject post(String url, String json) throws Exception {
@@ -522,7 +554,7 @@ final class Suggestions {
                 JSONArray g = m.optJSONArray("genres");
                 List<String> names = new ArrayList<>();
                 for (int j = 0; g != null && j < g.length() && names.size() < 2; j++) names.add(g.optString(j));
-                it.genres = String.join(", ", names);
+                it.genres = android.text.TextUtils.join(", ", names);
                 it.link = id;
                 list.add(it);
             }
@@ -545,7 +577,7 @@ final class Suggestions {
                 StringBuilder q = new StringBuilder("/discover/").append(kind)
                         .append("?watch_region=IN&with_watch_monetization_types=flatrate&sort_by=popularity.desc")
                         .append("&language=en-IN&include_adult=false&with_watch_providers=").append(p.id);
-                if (!langs.isEmpty()) q.append("&with_original_language=").append(URLEncoder.encode(String.join("|", langs), "UTF-8"));
+                if (!langs.isEmpty()) q.append("&with_original_language=").append(URLEncoder.encode(android.text.TextUtils.join("|", langs), "UTF-8"));
                 JSONArray results = get(c, q.toString()).optJSONArray("results");
                 List<Item> list = new ArrayList<>();
                 for (int i = 0; results != null && i < results.length() && list.size() < POOL; i++) {
@@ -622,7 +654,7 @@ final class Suggestions {
             String n = names.get(ids.optInt(i));
             if (n != null) out.add(n.replace("Action & Adventure", "Action").replace("Sci-Fi & Fantasy", "Sci-Fi"));
         }
-        return String.join(" \u00b7 ", out);
+        return android.text.TextUtils.join(" \u00b7 ", out);
     }
 
     /** TMDB GET. Accepts either a v4 read-access token (eyJ\u2026) or a v3 API key. */
@@ -784,18 +816,27 @@ final class Suggestions {
 
     /**
      * Stremio titles open on their detail page: Stremio takes stremio:///detail/{type}/{id}/{videoId},
-     * Nuvio takes nuvio://detail/{type}/{id} (its stremio:// handler only installs add-ons).
+     * Nuvio takes nuvio://detail/{type}/{id} (its stremio:// handler only installs add-ons), and
+     * Nuvio forks without that link the title's IMDb page (see NuvioCloud.titleLinks).
      */
     static void openStremio(Context c, Item it, Provider p) {
         String type = it.type.equals("tv") ? "series" : "movie";
-        String url = p.id == NUVIO_ID ? "nuvio://detail/" + type + "/" + it.link
-                : "stremio:///detail/" + type + "/" + it.link + (type.equals("movie") ? "/" + it.link : "");
+        List<String> urls = p.id == NUVIO_ID ? NuvioCloud.titleLinks(type.equals("series"), it.link)
+                : java.util.Collections.singletonList("stremio:///detail/" + type + "/" + it.link
+                        + (type.equals("movie") ? "/" + it.link : ""));
+        openLinks(c, p.pkg, urls);
+    }
+
+    /** Opens the first of these links the app handles, else just launches the app. Returns whether anything started. */
+    static boolean openLinks(Context c, String pkg, List<String> urls) {
         PackageManager pm = c.getPackageManager();
-        Intent i = view(url, p.pkg);
-        if (i.resolveActivity(pm) != null && start(c, i)) return;
-        Intent launch = pm.getLeanbackLaunchIntentForPackage(p.pkg);
-        if (launch == null) launch = pm.getLaunchIntentForPackage(p.pkg);
-        if (launch != null) start(c, launch);
+        for (String url : urls) {
+            Intent i = view(url, pkg);
+            if (i.resolveActivity(pm) != null && start(c, i)) return true;
+        }
+        Intent launch = pm.getLeanbackLaunchIntentForPackage(pkg);
+        if (launch == null) launch = pm.getLaunchIntentForPackage(pkg);
+        return launch != null && start(c, launch);
     }
 
     static Intent view(String url, String pkg) {

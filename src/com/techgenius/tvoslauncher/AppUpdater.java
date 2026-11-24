@@ -46,6 +46,7 @@ public final class AppUpdater {
     private static final String KEY_LATEST_URL = "latest_apk_url";
     private static final String KEY_LATEST_CHANGELOG = "latest_changelog";
     private static final String KEY_LAST_CHECK = "last_check_ms";
+    private static final String KEY_INCOMPATIBLE_VER = "incompatible_sig_version";
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile boolean checking = false;
@@ -71,7 +72,7 @@ public final class AppUpdater {
     }
 
     public static String getCurrentVersion(Context c) {
-        if (c == null) return "2.1.5";
+        if (c == null) return "2.2.5";
         try {
             PackageInfo pi = c.getPackageManager().getPackageInfo(c.getPackageName(), 0);
             if (pi != null && pi.versionName != null && !pi.versionName.isEmpty()) {
@@ -79,7 +80,7 @@ public final class AppUpdater {
             }
         } catch (Throwable ignored) {
         }
-        return "2.1.5";
+        return "2.2.5";
     }
 
     public static String getCachedLatestVersion(Context c) {
@@ -214,6 +215,101 @@ public final class AppUpdater {
         }, "github-update-check").start();
     }
 
+    public static File getUpdatesFolder(Context c) {
+        File primary = new File("/storage/emulated/0/Download/tvOSLauncherUpdates");
+        try {
+            if (!primary.exists()) primary.mkdirs();
+            if (primary.exists() && primary.isDirectory() && primary.canWrite()) {
+                return primary;
+            }
+        } catch (Throwable ignored) {
+        }
+        try {
+            File dl = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS);
+            if (dl != null) {
+                File sub = new File(dl, "tvOSLauncherUpdates");
+                if (!sub.exists()) sub.mkdirs();
+                if (sub.exists() && sub.isDirectory() && sub.canWrite()) {
+                    return sub;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        File fallback = new File(c.getCacheDir(), "tvOSLauncherUpdates");
+        if (!fallback.exists()) fallback.mkdirs();
+        return fallback;
+    }
+
+    /**
+     * Called on MainActivity startup (first opening after update): checks the installed version
+     * and clears `/storage/emulated/0/Download/tvOSLauncherUpdates` if the app was updated or
+     * if any downloaded APK is for the current or an older version, leaving zero leftovers.
+     */
+    public static void cleanupUpdatesFolderOnStartup(Context c) {
+        if (c == null) return;
+        final Context appCtx = c.getApplicationContext();
+        new Thread(() -> {
+            try {
+                String curVer = getCurrentVersion(appCtx);
+                SharedPreferences sp = prefs(appCtx);
+                String lastCleanedVer = sp.getString("last_cleaned_installed_ver", "");
+                boolean versionChanged = !curVer.equals(lastCleanedVer);
+
+                File[] dirs = new File[]{
+                    new File("/storage/emulated/0/Download/tvOSLauncherUpdates"),
+                    new File("/sdcard/Download/tvOSLauncherUpdates"),
+                    new File(appCtx.getCacheDir(), "tvOSLauncherUpdates")
+                };
+                for (File dir : dirs) {
+                    if (dir == null || !dir.exists() || !dir.isDirectory()) continue;
+                    File[] files = dir.listFiles();
+                    if (files == null) continue;
+                    for (File f : files) {
+                        if (f == null || !f.isFile()) continue;
+                        String name = f.getName();
+                        boolean shouldDelete = versionChanged || name.endsWith(".part") || name.endsWith(".tmp");
+                        if (!shouldDelete && name.startsWith("tvOS-Launcher-v") && name.endsWith(".apk")) {
+                            String fileVer = cleanVersion(name.substring("tvOS-Launcher-v".length(), name.length() - 4));
+                            if (!isNewerVersion(curVer, fileVer)) {
+                                shouldDelete = true;
+                            }
+                        }
+                        if (shouldDelete) {
+                            try { f.delete(); } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+                // Also remove legacy temporary files if present
+                try { new File(appCtx.getCacheDir(), "tvos-update.apk").delete(); } catch (Throwable ignored) {}
+                try { new File("/storage/emulated/0/Download/tvos-update.apk").delete(); } catch (Throwable ignored) {}
+
+                if (versionChanged) {
+                    sp.edit().putString("last_cleaned_installed_ver", curVer).apply();
+                }
+            } catch (Throwable ignored) {
+            }
+        }, "updater-cleanup").start();
+    }
+
+    private static boolean isValidDownloadedApk(Context c, File apkFile, String expectedVersion) {
+        if (c == null || apkFile == null || !apkFile.exists() || apkFile.length() < 100_000) {
+            return false;
+        }
+        try {
+            PackageInfo pi = c.getPackageManager().getPackageArchiveInfo(apkFile.getAbsolutePath(), 0);
+            if (pi == null || !c.getPackageName().equals(pi.packageName)) {
+                return false;
+            }
+            if (expectedVersion != null && !expectedVersion.isEmpty() && pi.versionName != null) {
+                return cleanVersion(expectedVersion).equals(cleanVersion(pi.versionName));
+            }
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     /**
      * Called on MainActivity startup / network online: if Automatic Updates is ON, checks GitHub
      * in the background and shows the Update Available popup (with Changelog & Install buttons)
@@ -221,6 +317,7 @@ public final class AppUpdater {
      */
     public static void checkAutoUpdateIfNeeded(Activity activity) {
         if (activity == null || activity.isFinishing()) return;
+        cleanupUpdatesFolderOnStartup(activity);
         if (!isAutoUpdateEnabled(activity)) return;
         if (checking || downloading) return;
         long last = prefs(activity).getLong(KEY_LAST_CHECK, 0L);
@@ -230,6 +327,11 @@ public final class AppUpdater {
 
         checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
             if (success && updateAvailable && !activity.isFinishing()) {
+                String incomp = prefs(activity).getString(KEY_INCOMPATIBLE_VER, "");
+                if (latestVersion != null && latestVersion.equals(incomp)) {
+                    // Suppress automatic popup if this exact version was previously confirmed incompatible
+                    return;
+                }
                 showUpdateAvailableDialog(
                         activity,
                         latestVersion,
@@ -311,7 +413,7 @@ public final class AppUpdater {
         card.setOrientation(android.widget.LinearLayout.VERTICAL);
         int padH = Math.round(28 * d);
         int padV = Math.round(24 * d);
-        card.setPadding(padH, padV, padH, padV);
+        card.setPaddingRelative(padH, padV, padH, padV);
         android.graphics.drawable.GradientDrawable cardBg = new android.graphics.drawable.GradientDrawable();
         cardBg.setColor(0xF2181A22);
         cardBg.setCornerRadius(22f * d);
@@ -367,7 +469,7 @@ public final class AppUpdater {
         android.widget.LinearLayout.LayoutParams b1Lp = new android.widget.LinearLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-        b1Lp.rightMargin = Math.round(12 * d);
+        b1Lp.setMarginEnd(Math.round(12 * d));
         btnRow.addView(changelogBtn, b1Lp);
 
         // Button 2: Install (Default Selected / Focused)
@@ -420,7 +522,7 @@ public final class AppUpdater {
         card.setOrientation(android.widget.LinearLayout.VERTICAL);
         int padH = Math.round(26 * d);
         int padV = Math.round(22 * d);
-        card.setPadding(padH, padV, padH, padV);
+        card.setPaddingRelative(padH, padV, padH, padV);
         android.graphics.drawable.GradientDrawable cardBg = new android.graphics.drawable.GradientDrawable();
         cardBg.setColor(0xF2181A22);
         cardBg.setCornerRadius(22f * d);
@@ -448,7 +550,7 @@ public final class AppUpdater {
         bodyTv.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL));
         bodyTv.setLineSpacing(0f, 1.18f);
         int sPad = Math.round(12 * d);
-        bodyTv.setPadding(sPad, sPad, sPad, sPad);
+        bodyTv.setPaddingRelative(sPad, sPad, sPad, sPad);
         scroll.addView(bodyTv);
 
         android.graphics.drawable.GradientDrawable scrollBg = new android.graphics.drawable.GradientDrawable();
@@ -478,7 +580,7 @@ public final class AppUpdater {
         android.widget.LinearLayout.LayoutParams backLp = new android.widget.LinearLayout.LayoutParams(
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-        backLp.rightMargin = Math.round(12 * d);
+        backLp.setMarginEnd(Math.round(12 * d));
         btnRow.addView(backBtn, backLp);
 
         android.widget.TextView installBtn = createDialogActionButton(
@@ -515,7 +617,7 @@ public final class AppUpdater {
         btn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
         btn.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
         btn.setGravity(android.view.Gravity.CENTER);
-        btn.setPadding(Math.round(22 * d), Math.round(11 * d), Math.round(22 * d), Math.round(11 * d));
+        btn.setPaddingRelative(Math.round(22 * d), Math.round(11 * d), Math.round(22 * d), Math.round(11 * d));
         btn.setFocusable(true);
         btn.setClickable(true);
 
@@ -556,60 +658,127 @@ public final class AppUpdater {
         downloading = true;
         if (onUiRefresh != null) MAIN.post(onUiRefresh);
         final Context appCtx = activity.getApplicationContext();
-
-        Toast.makeText(activity,
-                I18n.s(activity, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
-                Toast.LENGTH_SHORT).show();
+        final String cleanVer = cleanVersion(version);
 
         new Thread(() -> {
             HttpURLConnection conn = null;
-            File apkFile = new File(appCtx.getCacheDir(), "tvos-update.apk");
+            File updatesDir = getUpdatesFolder(appCtx);
+            String targetName = "tvOS-Launcher-v" + (cleanVer.isEmpty() ? "latest" : cleanVer) + ".apk";
+            File apkFile = new File(updatesDir, targetName);
             try {
-                if (apkFile.exists()) apkFile.delete();
-                String currentUrl = (apkUrl != null && !apkUrl.isEmpty()) ? apkUrl : GITHUB_FALLBACK_APK;
-                for (int redirects = 0; redirects < 6; redirects++) {
-                    conn = (HttpURLConnection) new URL(currentUrl).openConnection();
-                    conn.setInstanceFollowRedirects(true);
-                    conn.setConnectTimeout(15000);
-                    conn.setReadTimeout(30000);
-                    conn.setRequestProperty("User-Agent", "tvOS-Launcher-Updater");
-                    int status = conn.getResponseCode();
-                    if (status == HttpURLConnection.HTTP_MOVED_TEMP
-                            || status == HttpURLConnection.HTTP_MOVED_PERM
-                            || status == HttpURLConnection.HTTP_SEE_OTHER
-                            || status == 307 || status == 308) {
-                        String loc = conn.getHeaderField("Location");
-                        conn.disconnect();
-                        if (loc == null || loc.isEmpty()) break;
-                        currentUrl = loc;
-                        continue;
+                // Remove any other leftover APK files in tvOSLauncherUpdates that don't match targetName
+                File[] existingFiles = updatesDir.listFiles();
+                if (existingFiles != null) {
+                    for (File f : existingFiles) {
+                        if (f != null && f.isFile() && !targetName.equals(f.getName())) {
+                            try { f.delete(); } catch (Throwable ignored) {}
+                        }
                     }
-                    break;
                 }
-                if (conn == null || conn.getResponseCode() != 200) {
-                    throw new Exception("Download failed");
-                }
-                try (InputStream in = conn.getInputStream();
-                     FileOutputStream fos = new FileOutputStream(apkFile)) {
-                    byte[] buf = new byte[32768];
-                    int r;
-                    while ((r = in.read(buf)) > 0) {
-                        fos.write(buf, 0, r);
+
+                // If the update APK for this version was already downloaded and is valid, reuse it without re-downloading!
+                boolean alreadyDownloaded = isValidDownloadedApk(appCtx, apkFile, cleanVer);
+                if (!alreadyDownloaded) {
+                    if (apkFile.exists()) {
+                        try { apkFile.delete(); } catch (Throwable ignored) {}
                     }
-                    fos.flush();
+                    MAIN.post(() -> Toast.makeText(appCtx,
+                            I18n.s(appCtx, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
+                            Toast.LENGTH_SHORT).show());
+
+                    File partFile = new File(updatesDir, targetName + ".part");
+                    if (partFile.exists()) {
+                        try { partFile.delete(); } catch (Throwable ignored) {}
+                    }
+
+                    String currentUrl = (apkUrl != null && !apkUrl.isEmpty()) ? apkUrl : GITHUB_FALLBACK_APK;
+                    for (int redirects = 0; redirects < 6; redirects++) {
+                        conn = (HttpURLConnection) new URL(currentUrl).openConnection();
+                        conn.setInstanceFollowRedirects(true);
+                        conn.setConnectTimeout(15000);
+                        conn.setReadTimeout(30000);
+                        conn.setRequestProperty("User-Agent", "tvOS-Launcher-Updater");
+                        int status = conn.getResponseCode();
+                        if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                                || status == HttpURLConnection.HTTP_MOVED_PERM
+                                || status == HttpURLConnection.HTTP_SEE_OTHER
+                                || status == 307 || status == 308) {
+                            String loc = conn.getHeaderField("Location");
+                            conn.disconnect();
+                            if (loc == null || loc.isEmpty()) break;
+                            currentUrl = loc;
+                            continue;
+                        }
+                        break;
+                    }
+                    if (conn == null || conn.getResponseCode() != 200) {
+                        throw new Exception("Download failed");
+                    }
+                    try (InputStream in = conn.getInputStream();
+                         FileOutputStream fos = new FileOutputStream(partFile)) {
+                        byte[] buf = new byte[32768];
+                        int r;
+                        while ((r = in.read(buf)) > 0) {
+                            fos.write(buf, 0, r);
+                        }
+                        fos.flush();
+                    }
+                    if (!partFile.exists() || partFile.length() < 10_000) {
+                        try { partFile.delete(); } catch (Throwable ignored) {}
+                        throw new Exception("Downloaded APK invalid");
+                    }
+                    if (!partFile.renameTo(apkFile)) {
+                        copyFile(partFile, apkFile);
+                        try { partFile.delete(); } catch (Throwable ignored) {}
+                    }
                 }
+
                 if (!apkFile.exists() || apkFile.length() < 10_000) {
                     throw new Exception("Downloaded APK invalid");
                 }
                 // Make readable for shell/system installer if needed
                 try {
-                    appCtx.getCacheDir().setExecutable(true, false);
+                    updatesDir.setExecutable(true, false);
+                    updatesDir.setReadable(true, false);
                     apkFile.setReadable(true, false);
                 } catch (Throwable ignored) {
                 }
 
-                // 1. If ADB is currently active (port 5555 open), install automatically via LocalAdb
-                if (LocalAdb.isAdbPortCurrentlyOpen()) {
+                // Verify package signature compatibility before attempting to install
+                if (!isSignatureCompatible(appCtx, apkFile)) {
+                    downloading = false;
+                    try {
+                        if (apkFile.exists()) apkFile.delete();
+                    } catch (Throwable ignored) {
+                    }
+                    prefs(appCtx).edit().putString(KEY_INCOMPATIBLE_VER, version).apply();
+                    if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                    MAIN.post(() -> {
+                        if (activity != null && !activity.isFinishing()) {
+                            new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                                    .setTitle(I18n.s(activity, "Update Signature Mismatch", "Güncelleme İmza Uyuşmazlığı"))
+                                    .setMessage(I18n.s(activity,
+                                            "The downloaded update (v" + version + ") is signed with a different key than your installed app.\n\n"
+                                                    + "Android requires existing installs to be uninstalled before switching signatures. To install, please backup your settings in Settings -> Backup & Restore, then reinstall.",
+                                            "İndirilen güncelleme (v" + version + "), yüklü uygulamanızdan farklı bir anahtarla imzalanmış.\n\n"
+                                                    + "Android farklı imzalar arasında güncellemeyi engeller. Yüklemek için Ayarlar -> Yedekle ve Geri Yükle bölümünden yedek alıp uygulamayı yeniden kurun."))
+                                    .setPositiveButton(I18n.s(activity, "OK", "Tamam"), null)
+                                    .show();
+                        } else {
+                            Toast.makeText(appCtx,
+                                    I18n.s(appCtx, "Update signature mismatch: cannot update in-place.", "Güncelleme imza uyuşmazlığı."),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return;
+                }
+                prefs(appCtx).edit().remove(KEY_INCOMPATIBLE_VER).apply();
+
+                // 1. If Persistent ADB Mode is selected and ADB is active (or port is open), install automatically via LocalAdb
+                boolean useAdbInstall = (LocalAdb.getAdbMode(appCtx) == LocalAdb.ADB_MODE_PERSISTENT
+                        && (LocalAdb.isAdbPortCurrentlyOpen(appCtx) || LocalAdb.isAdbSettingEnabled(appCtx)))
+                        || LocalAdb.isAdbPortCurrentlyOpen(appCtx);
+                if (useAdbInstall) {
                     MAIN.post(() -> Toast.makeText(appCtx,
                             I18n.s(appCtx,
                                     "Installing update v" + version + " automatically via ADB…",
@@ -703,12 +872,71 @@ public final class AppUpdater {
     }
 
     /**
+     * Checks whether the downloaded APK has a signing certificate compatible with the installed app.
+     * Android strictly forbids replacing an installed app with an APK signed with a different key
+     * (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
+     */
+    public static boolean isSignatureCompatible(Context c, File apk) {
+        if (c == null || apk == null || !apk.exists()) return true;
+        try {
+            android.content.pm.PackageManager pm = c.getPackageManager();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageInfo curPi = pm.getPackageInfo(c.getPackageName(), android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES);
+                PackageInfo arcPi = pm.getPackageArchiveInfo(apk.getAbsolutePath(), android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES);
+                if (curPi != null && curPi.signingInfo != null && arcPi != null && arcPi.signingInfo != null) {
+                    android.content.pm.Signature[] curSigs = curPi.signingInfo.hasMultipleSigners()
+                            ? curPi.signingInfo.getApkContentsSigners()
+                            : curPi.signingInfo.getSigningCertificateHistory();
+                    android.content.pm.Signature[] arcSigs = arcPi.signingInfo.hasMultipleSigners()
+                            ? arcPi.signingInfo.getApkContentsSigners()
+                            : arcPi.signingInfo.getSigningCertificateHistory();
+                    if (curSigs != null && arcSigs != null && curSigs.length > 0 && arcSigs.length > 0) {
+                        for (android.content.pm.Signature cs : curSigs) {
+                            for (android.content.pm.Signature as : arcSigs) {
+                                if (cs.equals(as)) return true;
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            // Fallback for API < 28 or if signingInfo was not populated
+            PackageInfo curPiLegacy = pm.getPackageInfo(c.getPackageName(), android.content.pm.PackageManager.GET_SIGNATURES);
+            PackageInfo arcPiLegacy = pm.getPackageArchiveInfo(apk.getAbsolutePath(), android.content.pm.PackageManager.GET_SIGNATURES);
+            if (curPiLegacy != null && curPiLegacy.signatures != null
+                    && arcPiLegacy != null && arcPiLegacy.signatures != null) {
+                if (curPiLegacy.signatures.length > 0 && arcPiLegacy.signatures.length > 0) {
+                    for (android.content.pm.Signature cs : curPiLegacy.signatures) {
+                        for (android.content.pm.Signature as : arcPiLegacy.signatures) {
+                            if (cs.equals(as)) return true;
+                        }
+                    }
+                    return false;
+                }
+            }
+        } catch (Throwable t) {
+            return true;
+        }
+        return true;
+    }
+
+    /**
      * Receives PackageInstaller status callbacks and launches the user confirmation prompt if required.
      */
     public static final class InstallStatusReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent == null) return;
+            if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())) {
+                try {
+                    cleanupUpdatesFolderOnStartup(context);
+                    Intent launch = new Intent(context, MainActivity.class);
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    context.startActivity(launch);
+                } catch (Throwable ignored) {
+                }
+                return;
+            }
             int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1);
             if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
                 Intent confirm = intent.getParcelableExtra(Intent.EXTRA_INTENT);
