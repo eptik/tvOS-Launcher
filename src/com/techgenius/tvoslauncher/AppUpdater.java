@@ -64,7 +64,10 @@ public final class AppUpdater {
     }
 
     public static boolean isAutoUpdateEnabled(Context c) {
-        return prefs(c).getBoolean(KEY_AUTO_UPDATE, true);
+        // Fork default: OFF. This repo is a fork; upstream releases install a
+        // stock build that replaces the fork features (video wallpapers, scene
+        // fixes). Users can still opt in via Settings or update manually.
+        return prefs(c).getBoolean(KEY_AUTO_UPDATE, false);
     }
 
     public static void setAutoUpdateEnabled(Context c, boolean enabled) {
