@@ -327,7 +327,9 @@ public class VideoPickerActivity extends Activity {
         File vf = VideoCache.videoFile(this, key);
         TextView meta = new TextView(this);
         meta.setText((vf.exists() ? vf.length() / 1048576 + " MB" : "missing")
-                + (VideoCache.isCurrent(this, key) ? "  ·  ✓ " + I18n.s(this, "now playing", "şimdi oynatılıyor") : ""));
+                + (VideoCache.isCurrent(this, key) ? "  ·  ✓ " + I18n.s(this, "now playing", "şimdi oynatılıyor") : "")
+                + (VideoCache.decoderFrozen(this, key)
+                        ? "  ·  " + I18n.s(this, "freezes on this TV", "bu TV'de donuyor") : ""));
         meta.setTextColor(0x99FFFFFF);
         meta.setTextSize(11);
         meta.setPadding(0, dp(2), 0, 0);

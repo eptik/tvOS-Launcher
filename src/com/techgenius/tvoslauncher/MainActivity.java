@@ -5489,6 +5489,7 @@ public class MainActivity extends Activity {
                     videoStallSkips = 0;
                     Log.i("VideoWallpaper", "swap " + swapT0 + ": first frame, +"
                             + (android.os.SystemClock.elapsedRealtime() - swapT0) + " ms");
+                    scheduleFreezeCheck();
                     wallView.setVisibility(View.INVISIBLE);
                     if (sceneHome != null && sceneHome.sceneView != null) {
                         sceneHome.sceneView.setVideoBackdropActive(true);
@@ -5590,10 +5591,20 @@ public class MainActivity extends Activity {
     private String nextRotationClip(List<String[]> cached, String cur) {
         // Owner: "should rotate between all videos" — a shuffled deck guarantees every clip
         // plays once before any repeats, unlike pure random which can double up.
-        videoDeck.removeIf(k -> !containsKey(cached, k) || k.equals(cur));
+        // Near-still clips read as frozen wallpaper; clips that froze the hardware decoder in
+        // the live test (VLC plays them, MediaPlayer does not) are banned outright. If every
+        // clip fails the gate the full pool wins — something must play.
+        videoDeck.removeIf(k -> !containsKey(cached, k) || k.equals(cur)
+                || VideoCache.decoderFrozen(this, k) || VideoCache.tooStill(this, k));
         if (videoDeck.isEmpty()) {
             videoDeck.clear();
-            for (String[] row : cached) if (!row[0].equals(cur)) videoDeck.add(row[0]);
+            for (String[] row : cached) {
+                if (!row[0].equals(cur) && !VideoCache.decoderFrozen(this, row[0])
+                        && !VideoCache.tooStill(this, row[0])) videoDeck.add(row[0]);
+            }
+            if (videoDeck.isEmpty()) {
+                for (String[] row : cached) if (!row[0].equals(cur)) videoDeck.add(row[0]);
+            }
             java.util.Collections.shuffle(videoDeck);
         }
         return videoDeck.isEmpty() ? cur : videoDeck.remove(0);
@@ -5603,6 +5614,55 @@ public class MainActivity extends Activity {
         for (String[] row : cached) if (row[0].equals(key)) return true;
         return false;
     }
+
+    /**
+     * Some clips extract frames fine but freeze the hardware decoder in real playback (VLC's
+     * software decoder handles them). The only signal that matches what the owner sees is the
+     * composited surface itself: PixelCopy the playing SurfaceView twice and diff. A static
+     * result bans the clip from rotation and immediately moves on.
+     */
+    private void scheduleFreezeCheck() {
+        videoHandler.removeCallbacks(videoFreezeCheck);
+        videoHandler.postDelayed(videoFreezeCheck, 1200L);
+    }
+
+    private final Runnable videoFreezeCheck = new Runnable() {
+        @Override public void run() {
+            if (videoPlayer == null || videoSurface == null || !videoPlaying) return;
+            final String key = getSharedPreferences("video_wall", MODE_PRIVATE)
+                    .getString("current_key", "");
+            if (key.isEmpty() || VideoCache.decoderFrozen(MainActivity.this, key)) return;
+            final Bitmap a = Bitmap.createBitmap(160, 90, Bitmap.Config.ARGB_8888);
+            android.view.PixelCopy.request(videoSurface, a, st -> {
+                if (st != android.view.PixelCopy.SUCCESS) {
+                    Log.w("VideoWallpaper", "freeze-check: first copy failed status=" + st);
+                    return;
+                }
+                videoHandler.postDelayed(() -> {
+                    if (videoPlayer == null || videoSurface == null || !videoPlaying) return;
+                    final Bitmap b = Bitmap.createBitmap(160, 90, Bitmap.Config.ARGB_8888);
+                    android.view.PixelCopy.request(videoSurface, b, st2 -> {
+                        if (st2 != android.view.PixelCopy.SUCCESS) {
+                            Log.w("VideoWallpaper", "freeze-check: second copy failed status=" + st2);
+                            return;
+                        }
+                        long diff = 0;
+                        for (int y = 0; y < 90; y += 2) for (int x = 0; x < 160; x += 2) {
+                            int pa = a.getPixel(x, y), pb = b.getPixel(x, y);
+                            diff += Math.abs((pa >> 8 & 255) - (pb >> 8 & 255));
+                        }
+                        double mean = diff / (80.0 * 40.0);
+                        Log.i("VideoWallpaper", "freeze-check " + key + ": diff=" + String.format(java.util.Locale.ROOT, "%.2f", mean));
+                        if (mean < 1.0) {
+                            // The screen is static 1.5s in: the decoder froze. Ban + move on.
+                            VideoCache.banFrozen(MainActivity.this, key);
+                            videoHandler.post(videoRotateTick);
+                        }
+                    }, videoHandler);
+                }, 1500L);
+            }, videoHandler);
+        }
+    };
 
     private final Runnable videoRotateTick = new Runnable() {
         @Override public void run() {

@@ -232,11 +232,23 @@ final class VideoCache {
     /**
      * Pre-scores every pool clip OFF the UI thread so the rotation tick (which runs on the
      * main thread) only ever reads a cached number. Called at launcher start and after a
-     * download; already-scored clips are skipped.
+     * download; already-scored clips are skipped. Decoder-freeze detection happens on the
+     * live wallpaper (PixelCopy diff in MainActivity) — headless probes cannot tell here.
      */
     static void scorePoolAsync(Context c) {
         new Thread(() -> {
             try {
+                // One-time purge: the broken headless probe (SurfaceTexture/ImageReader
+                // delivered zero frames for every clip) wrote cp_=0 bans for ALL clips and
+                // left the screen black. Those values are garbage; the real detector is the
+                // PixelCopy freeze check on the live wallpaper.
+                if (!prefs(c).getBoolean("cp_purged_v2", false)) {
+                    android.content.SharedPreferences.Editor ed = prefs(c).edit();
+                    for (String k : prefs(c).getAll().keySet()) {
+                        if (k.startsWith("cp_")) ed.remove(k);
+                    }
+                    ed.putBoolean("cp_purged_v2", true).apply();
+                }
                 List<String[]> pool = cachedClips(c);
                 for (String[] row : pool) {
                     if (prefs(c).getFloat("ms_" + row[0], -1f) < 0) motionScore(c, row[0]);
@@ -244,6 +256,22 @@ final class VideoCache {
             } catch (Throwable ignored) {
             }
         }, "motion-score").start();
+    }
+
+    /**
+     * Ban flag for clips that freeze the hardware decoder during REAL playback (frames stop
+     * reaching the display while the position advances). Set by MainActivity's PixelCopy
+     * freeze check on the live wallpaper surface — headless probes (SurfaceTexture,
+     * ImageReader) deliver no frames on this device and cannot tell.
+     */
+    static void banFrozen(Context c, String key) {
+        Log.w(TAG, "decoder frozen during real playback, banning from rotation: " + key);
+        prefs(c).edit().putInt("cp_" + key, 0).apply();
+    }
+
+    /** The clip froze the hardware decoder in the live test — never rotate it in. */
+    static boolean decoderFrozen(Context c, String key) {
+        return prefs(c).getInt("cp_" + key, 1) == 0;
     }
 
 
@@ -336,7 +364,7 @@ final class VideoCache {
             prefs(c).edit().remove("current_key").remove("current_slug")
                     .remove("current_name").remove("current_category").apply();
         }
-        prefs(c).edit().remove("ms_" + key).apply();
+        prefs(c).edit().remove("ms_" + key).remove("cp_" + key).apply();
     }
 
     /** True when the clip's video file is already in the cache. */
