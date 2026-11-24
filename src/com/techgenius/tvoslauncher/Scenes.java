@@ -1005,7 +1005,7 @@ public final class Scenes {
         private final Map<String, LoadedScene> cache = new HashMap<>();
         private List<String> activeIds = new ArrayList<>();
         private int activeIdx = 0;
-        private String currentId = "night";
+        private String currentId = "night";   // syncSettings() restores the sticky prefer_scene_id
         private String prevId = null;
         private float crossfade = 1f;
         private ValueAnimator fadeAnim;
@@ -1204,14 +1204,14 @@ public final class Scenes {
             List<String> enabled = lockScreenMode ? getEnabledLockSceneIds(c) : getEnabledSceneIds(c);
             activeIds = enabled;
             String preferKey = lockScreenMode ? "prefer_lock_scene_id" : "prefer_scene_id";
+            // prefer_scene_id is STICKY: it must survive app restarts. The old consume-once
+            // behaviour lost the owner's wallpaper choice on every recreate and fell back to
+            // the first enabled scene (night = black screen).
             String prefer = prefs(c).getString(preferKey, null);
-            if (prefer != null) {
-                prefs(c).edit().remove(preferKey).apply();
-                if (activeIds.contains(prefer)) {
-                    currentId = prefer;
-                    prevId = null;
-                    crossfade = 1f;
-                }
+            if (prefer != null && activeIds.contains(prefer)) {
+                currentId = prefer;
+                prevId = null;
+                crossfade = 1f;
             }
             String curBase = baseSceneId(currentId);
             if (!activeIds.contains(curBase)) {

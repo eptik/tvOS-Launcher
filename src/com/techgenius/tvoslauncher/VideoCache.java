@@ -249,6 +249,14 @@ final class VideoCache {
                     }
                     ed.putBoolean("cp_purged_v2", true).apply();
                 }
+                // One-time heal: the consume-once prefer_scene_id lost the owner's wallpaper
+                // choice across restarts; the wallpaper pref still says video_wall.
+                android.content.SharedPreferences home = c.getSharedPreferences("home", Context.MODE_PRIVATE);
+                if (!home.contains("prefer_scene_id")
+                        && "video_wall".equals(home.getString("wallpaper", ""))) {
+                    home.edit().putString("prefer_scene_id", "video_wall").apply();
+                    Log.i(TAG, "healed prefer_scene_id=video_wall from the wallpaper pref");
+                }
                 List<String[]> pool = cachedClips(c);
                 for (String[] row : pool) {
                     if (prefs(c).getFloat("ms_" + row[0], -1f) < 0) motionScore(c, row[0]);
