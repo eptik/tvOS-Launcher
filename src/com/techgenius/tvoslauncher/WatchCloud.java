@@ -154,6 +154,15 @@ abstract class WatchCloud {
         for (int p = 1; p <= MAX_CACHED_PROFILES; p++) e.remove(cwKey(p));
     }
 
+    private static final String K_CW_AT = "cw_at_";
+    /** The cache is trusted for ten minutes; after that the shelf refetches from the cloud. */
+    static final long CACHE_TTL_MS = 10 * 60_000L;
+
+    /** When the profile's cache row was written, or 0 if never. */
+    long cacheAt(int profile) {
+        return prefs.getLong(K_CW_AT + profile, 0L);
+    }
+
     /** Last successful result, so the popup has something to show instantly after a restart. */
     List<Item> loadCache(int profile) {
         String s = prefs.getString(cwKey(profile), "");
@@ -184,6 +193,7 @@ abstract class WatchCloud {
     }
 
     void saveCache(int profile, List<Item> items) {
+        prefs.edit().putLong(K_CW_AT + profile, System.currentTimeMillis()).apply();
         try {
             JSONArray a = new JSONArray();
             for (Item it : items) {

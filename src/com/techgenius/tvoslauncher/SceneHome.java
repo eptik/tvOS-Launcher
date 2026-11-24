@@ -1142,9 +1142,19 @@ final class SceneHome {
         else if (stremioCloud != null && stremioCloud.ownsPackage(pkg)) cloud = stremioCloud;
         if (cloud != null && cloud.popupEnabled() && cloud.isSignedIn()) {
             try {
-                List<WatchCloud.Item> cloudItems = cloud.loadCache(cloud.profile());
+                // A cache with no expiry made the shelf show yesterday's progress forever:
+                // trust it for ten minutes, then refetch and fall back to it only on failure.
+                List<WatchCloud.Item> cloudItems = null;
+                if (cloud.cacheAt(cloud.profile()) > System.currentTimeMillis() - WatchCloud.CACHE_TTL_MS) {
+                    cloudItems = cloud.loadCache(cloud.profile());
+                }
                 if (cloudItems == null || cloudItems.isEmpty()) {
-                    cloudItems = cloud.continueWatching(cloud.profile(), MAX_SHELF_ITEMS);
+                    try {
+                        cloudItems = cloud.continueWatching(cloud.profile(), MAX_SHELF_ITEMS);
+                        if (cloudItems != null) cloud.saveCache(cloud.profile(), cloudItems);
+                    } catch (Exception net) {
+                        cloudItems = cloud.loadCache(cloud.profile());
+                    }
                 }
                 if (cloudItems != null) {
                     String appName = host.appLabel(pkg);

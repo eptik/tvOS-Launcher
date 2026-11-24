@@ -43,6 +43,7 @@ public class VideoPickerActivity extends Activity {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private LinearLayout list;
+    private TextView head;
     private TextView status;
     private List<WallperCatalogParse.Clip> clips = new ArrayList<>();
     private String downloadingKey;
@@ -66,8 +67,8 @@ public class VideoPickerActivity extends Activity {
         root.setBackgroundColor(Color.parseColor("#0B0B0C"));
         root.setPadding(dp(28), dp(16), dp(28), dp(16));
 
-        TextView head = new TextView(this);
-        head.setText("Video Wallpapers — most liked");
+        head = new TextView(this);
+        head.setText("Video Wallpapers");
         head.setTextColor(Color.WHITE);
         head.setTextSize(20);
         root.addView(head);
@@ -94,6 +95,22 @@ public class VideoPickerActivity extends Activity {
 
     private void populate() {
         list.removeAllViews();
+        // ---- the owner's library first: real files they keep, with an explicit delete
+        List<String[]> lib = VideoCache.cachedClips(this);
+        long totalBytes = 0;
+        for (String[] e : lib) {
+            File vf = VideoCache.videoFile(this, e[0]);
+            if (vf.exists()) totalBytes += vf.length();
+        }
+        head.setText("Video Wallpapers — library " + lib.size()
+                + " · " + (totalBytes / 1048576) + " MB — catalog " + clips.size());
+        if (!lib.isEmpty()) {
+            list.addView(sectionLabel(I18n.s(this, "Your library", "Kitaplığınız") + " — " + lib.size()
+                    + (totalBytes > 0 ? " · " + (totalBytes / 1048576) + " MB" : "")));
+            for (String[] e : lib) list.addView(libraryRow(e[0], e[2]));
+            list.addView(sectionLabel(I18n.s(this, "From wallper.app — most liked",
+                    "wallper.app'tan — en beğenilenler")));
+        }
         int shown = 0;
         for (WallperCatalogParse.Clip c : clips) {
             if (shown >= rowsShown) break;
@@ -123,6 +140,97 @@ public class VideoPickerActivity extends Activity {
         status.setText(clips.size() > rowsShown
                 ? "Top " + rowsShown + " of " + clips.size() + " — pick one to download"
                 : clips.size() + " clips");
+    }
+
+    private TextView sectionLabel(String t) {
+        TextView l = new TextView(this);
+        l.setText(t.toUpperCase(java.util.Locale.ROOT));
+        l.setTextColor(0x8CFFFFFF);
+        l.setTextSize(11);
+        l.setPadding(dp(4), dp(12), dp(4), dp(4));
+        l.setLetterSpacing(0.08f);
+        return l;
+    }
+
+    /** One owned clip: poster, name, size, now-playing badge, explicit delete button. */
+    private View libraryRow(String key, String name) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(8), dp(6), dp(8), dp(6));
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rlp.topMargin = dp(6);
+        row.setLayoutParams(rlp);
+        row.setFocusable(true);
+        row.setClickable(true);
+        row.setBackground(new MainActivity.LiquidGlass(dp(12), 0x2210161C, null, 0, 0, 1f).adaptive());
+        row.setOnFocusChangeListener((v, f) -> v.animate()
+                .scaleX(f ? 1.02f : 1f).scaleY(f ? 1.02f : 1f).setDuration(120).start());
+
+        ImageView thumb = new ImageView(this);
+        thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(dp(96), dp(54));
+        thumb.setLayoutParams(tlp);
+        GradientDrawable ph = new GradientDrawable();
+        ph.setCornerRadius(dp(4));
+        ph.setColor(0x2EFFFFFF);
+        thumb.setBackground(ph);
+        File pf = VideoCache.posterFile(this, key);
+        if (pf.exists()) {
+            Bitmap bm = android.graphics.BitmapFactory.decodeFile(pf.getPath());
+            if (bm != null) thumb.setImageBitmap(bm);
+        }
+        row.addView(thumb);
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        clp.leftMargin = dp(10);
+        col.setLayoutParams(clp);
+        TextView nm = new TextView(this);
+        nm.setText(name == null || name.isEmpty() ? key : name);
+        nm.setTextColor(Color.WHITE);
+        nm.setTextSize(13);
+        nm.setSingleLine(true);
+        nm.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        col.addView(nm);
+        File vf = VideoCache.videoFile(this, key);
+        TextView meta = new TextView(this);
+        meta.setText((vf.exists() ? vf.length() / 1048576 + " MB" : "missing")
+                + (VideoCache.isCurrent(this, key) ? "  ·  ✓ " + I18n.s(this, "now playing", "şimdi oynatılıyor") : ""));
+        meta.setTextColor(0x99FFFFFF);
+        meta.setTextSize(11);
+        meta.setPadding(0, dp(2), 0, 0);
+        col.addView(meta);
+        row.addView(col);
+
+        TextView del = new TextView(this);
+        del.setText(I18n.s(this, "Delete", "Sil"));
+        del.setTextSize(12);
+        del.setTextColor(0xFFFF8A80);
+        del.setGravity(Gravity.CENTER);
+        del.setPadding(dp(14), dp(6), dp(14), dp(6));
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dlp.leftMargin = dp(10);
+        del.setLayoutParams(dlp);
+        del.setBackground(new MainActivity.LiquidGlass(dp(14), 0x33FF5252, null, 0, 0, 1f).adaptive());
+        del.setFocusable(true);
+        del.setOnClickListener(v -> {
+            boolean wasCurrent = VideoCache.isCurrent(this, key);
+            VideoCache.deleteClip(this, key);
+            android.widget.Toast.makeText(this, I18n.s(this, "Deleted ", "Silindi: ") + (name == null ? key : name),
+                    android.widget.Toast.LENGTH_SHORT).show();
+            if (wasCurrent) {
+                // the current clip is gone: pick another owned clip so the wallpaper keeps playing
+                List<String[]> rest = VideoCache.cachedClips(this);
+                if (!rest.isEmpty()) VideoCache.setCurrentKey(this, rest.get(0)[0]);
+            }
+            populate();
+        });
+        row.addView(del);
+        return row;
     }
 
     private View row(WallperCatalogParse.Clip c, int index) {
