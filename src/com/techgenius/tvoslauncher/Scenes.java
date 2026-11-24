@@ -1816,7 +1816,14 @@ public final class Scenes {
         }
 
         private Bitmap.Config frameBitmapConfig() {
-            return classicClockOnlyMode ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565;
+            // The video-wallpaper punch-through lives on TRANSPARENT window pixels: RGB_565 has
+            // no alpha, the hole would be opaque black and bury the video surface. The video
+            // scene and the classic clock both need ARGB_8888.
+            if (classicClockOnlyMode
+                    || (videoBackdropActive && VIDEO_WALLPAPER_ID.equals(baseSceneId(currentId)))) {
+                return Bitmap.Config.ARGB_8888;
+            }
+            return Bitmap.Config.RGB_565;
         }
 
         private String buildFrameKey(Context ctx, String sceneId, int fw, int fh) {
