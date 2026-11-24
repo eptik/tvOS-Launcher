@@ -1890,7 +1890,15 @@ public final class Scenes {
             Spec sp = ls.spec;
             if (!classicClockOnlyMode) {
                 // 1. Background image (center-crop)
-                if (ls.bg != null) drawCenterCrop(canvas, ls.bg, w, h);
+                if (ls.bg != null) {
+                    drawCenterCrop(canvas, ls.bg, w, h);
+                } else {
+                    // The video-wallpaper path: the window surface keeps the PREVIOUS frame's
+                    // pixels unless cleared, so every minute's clock painted on top of the last
+                    // (the "overlapping clocks"). Clear to transparent — the video punch-through
+                    // below is unaffected, the chrome starts from a fresh canvas.
+                    canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
+                }
 
                 // 2. Scene shade gradient
                 if ("water".equals(sp.id)) {

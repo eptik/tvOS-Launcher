@@ -495,7 +495,8 @@ public class MainActivity extends Activity {
         resumed = true;
         activeInstance = this;
         VideoCache.migrateToDownloads(this);
-        VideoCache.warmPlayability(this);   // validate the pool before the first swap can pick a broken clip
+        VideoCache.warmPlayability(this);   // validate the pool before the first swap
+        VideoCache.scorePoolAsync(this);    // pre-score clip motion off-thread for the rotation gate
         NowPlaying.addListener(npListener);
         NowPlaying.refresh(getApplicationContext());
         syncVideoWallpaper();

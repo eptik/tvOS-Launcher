@@ -74,6 +74,30 @@ final class VideoCache {
         dir.mkdirs();
         return new File(dir, key + ".png");
     }
+    /** Regenerates a missing poster from the clip itself (the reinstall wiped files/videos). */
+    static void ensurePoster(Context c, String key) {
+        try {
+            File pf = posterFile(c, key);
+            File vf = videoFile(c, key);
+            if (pf.exists() || !vf.exists()) return;
+            android.media.MediaMetadataRetriever mm = new android.media.MediaMetadataRetriever();
+            try {
+                mm.setDataSource(vf.getPath());
+                Bitmap frame = mm.getFrameAtTime(1_500_000,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (frame == null) return;
+                int w = 480, h = Math.max(1, frame.getHeight() * w / Math.max(1, frame.getWidth()));
+                Bitmap scaled = Bitmap.createScaledBitmap(frame, w, h, true);
+                java.io.FileOutputStream out = new java.io.FileOutputStream(pf);
+                scaled.compress(Bitmap.CompressFormat.PNG, 90, out);
+                out.close();
+            } finally {
+                try { mm.release(); } catch (Throwable ignored) { }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
 
     static boolean hasCurrent(Context c) {
         String key = prefs(c).getString("current_key", null);
@@ -146,6 +170,82 @@ final class VideoCache {
         playableCache.put(path, ok);
         return ok;
     }
+    // ─── Motion gate ────────────────────────────────────────────────────────────
+    // A clip whose picture barely changes reads as a FROZEN wallpaper no matter how
+    // correctly the pipeline plays it. Score it once, cache it, and keep such clips
+    // out of the rotation.
+
+    /** Mean abs luma diff between consecutive samples spread over the clip, 0..255-ish. */
+    static double motionScore(Context c, String key) {
+        String cacheKey = "ms_" + key;
+        double cached = prefs(c).getFloat(cacheKey, -1f);
+        if (cached >= 0) return cached;
+        double score = -1;
+        android.media.MediaMetadataRetriever mm = new android.media.MediaMetadataRetriever();
+        try {
+            mm.setDataSource(videoFile(c, key).getPath());
+            String dur = mm.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            long durationMs = dur == null ? 0 : Long.parseLong(dur);
+            if (durationMs < 4000) return -1;                     // too short to judge
+            long[] at = {durationMs / 10, durationMs * 3 / 10, durationMs / 2,
+                    durationMs * 7 / 10, durationMs * 9 / 10};
+            Bitmap[] frames = new Bitmap[at.length];
+            for (int i = 0; i < at.length; i++) {
+                frames[i] = mm.getFrameAtTime(at[i] * 1000,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (frames[i] == null) return -1;
+            }
+            int w = 160, h = 90;
+            double total = 0;
+            for (int i = 1; i < at.length; i++) {
+                Bitmap a = Bitmap.createScaledBitmap(frames[i - 1], w, h, true);
+                Bitmap b = Bitmap.createScaledBitmap(frames[i], w, h, true);
+                int[] pa = new int[w * h], pb = new int[w * h];
+                a.getPixels(pa, 0, w, 0, 0, w, h);
+                b.getPixels(pb, 0, w, 0, 0, w, h);
+                long diff = 0;
+                for (int p = 0; p < pa.length; p++) {
+                    int la = ((pa[p] >> 16 & 255) * 3 + (pa[p] >> 8 & 255) * 6 + (pa[p] & 255)) / 10;
+                    int lb = ((pb[p] >> 16 & 255) * 3 + (pb[p] >> 8 & 255) * 6 + (pb[p] & 255)) / 10;
+                    diff += Math.abs(la - lb);
+                }
+                total += diff / (double) pa.length;
+                if (a != frames[i - 1]) a.recycle();
+                if (b != frames[i]) b.recycle();
+            }
+            score = total / (at.length - 1);
+        } catch (Throwable t) {
+            return -1;                                            // never skip on a probe error
+        } finally {
+            try { mm.release(); } catch (Throwable ignored) { }
+        }
+        prefs(c).edit().putFloat(cacheKey, (float) score).apply();
+        return score;
+    }
+
+    /** Below this the picture reads as a still photo on a TV. */
+    static boolean tooStill(Context c, String key) {
+        double s = motionScore(c, key);
+        return s >= 0 && s < 6.0;
+    }
+
+    /**
+     * Pre-scores every pool clip OFF the UI thread so the rotation tick (which runs on the
+     * main thread) only ever reads a cached number. Called at launcher start and after a
+     * download; already-scored clips are skipped.
+     */
+    static void scorePoolAsync(Context c) {
+        new Thread(() -> {
+            try {
+                List<String[]> pool = cachedClips(c);
+                for (String[] row : pool) {
+                    if (prefs(c).getFloat("ms_" + row[0], -1f) < 0) motionScore(c, row[0]);
+                }
+            } catch (Throwable ignored) {
+            }
+        }, "motion-score").start();
+    }
+
 
     /** Cached clips that still exist on disk: the Download folder first, then legacy private clips. */
     static List<String[]> cachedClips(Context c) {
@@ -236,6 +336,7 @@ final class VideoCache {
             prefs(c).edit().remove("current_key").remove("current_slug")
                     .remove("current_name").remove("current_category").apply();
         }
+        prefs(c).edit().remove("ms_" + key).apply();
     }
 
     /** True when the clip's video file is already in the cache. */
